@@ -593,14 +593,225 @@ function CodeModernizerPage() {
 }
 
 // ============================================================================
+// QUALITY PIPELINE PAGE
+// ============================================================================
+
+const DEMO_PROJECT = '/Users/nishantchaudhary/Desktop/mcp-showcase/demo/legacy-app/src'
+
+const QP_STAGES = [
+  { key: 'tests',         label: 'Tests',         icon: '🧪' },
+  { key: 'types',         label: 'Type Safety',   icon: '🔷' },
+  { key: 'performance',   label: 'Performance',   icon: '⚡' },
+  { key: 'accessibility', label: 'Accessibility', icon: '♿' },
+  { key: 'design',        label: 'Design Tokens', icon: '🎨' },
+]
+
+const STATUS_COLOR: Record<string, string> = {
+  pass: 'var(--green)',
+  fail: 'var(--red)',
+  warn: 'var(--yellow)',
+  skip: 'var(--text-3)',
+}
+
+const STATUS_BG: Record<string, string> = {
+  pass: 'var(--green-dim)',
+  fail: 'var(--red-dim)',
+  warn: '#fbbf2415',
+  skip: 'var(--surface2)',
+}
+
+const GRADE_COLOR: Record<string, string> = {
+  A: 'var(--green)', B: 'var(--green)', C: 'var(--yellow)',
+  D: 'var(--yellow)', F: 'var(--red)',
+}
+
+interface QpStage {
+  name: string;
+  status: 'pass' | 'fail' | 'warn' | 'skip';
+  duration: number;
+  summary: string;
+  details: unknown;
+}
+interface QpResult {
+  overallStatus: string;
+  grade: string;
+  totalDuration: number;
+  stages: QpStage[];
+  timestamp: string;
+}
+
+function QualityPipelinePage() {
+  const [projectPath, setProjectPath] = useState(DEMO_PROJECT)
+  const [selectedStages, setSelectedStages] = useState<string[]>(['performance', 'accessibility', 'design'])
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<ToolResult | null>(null)
+
+  const qpResult = result?.result as { result?: QpResult } | undefined
+  const pipelineData = qpResult?.result
+
+  const toggleStage = (key: string) =>
+    setSelectedStages(prev => prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key])
+
+  const run = async () => {
+    setLoading(true); setResult(null)
+    try {
+      const r = await callTool('quality-pipeline', 'run_partial_pipeline', {
+        projectRoot: projectPath,
+        stages: selectedStages,
+      })
+      setResult(r)
+    } catch (e) {
+      setResult({ success: false, error: String(e) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const QUALITY_PIPELINE_STEPS = [
+    { icon: '🧪', label: 'Tests' },
+    { icon: '🔷', label: 'Type Safety' },
+    { icon: '⚡', label: 'Perf' },
+    { icon: '♿', label: 'A11y' },
+    { icon: '🎨', label: 'Tokens' },
+    { icon: '🏆', label: 'Grade' },
+  ]
+  const doneStep = pipelineData ? 5 : loading ? 2 : 0
+
+  return (
+    <>
+      <div className="page-header">
+        <div className="page-title">Quality Pipeline</div>
+        <div className="page-desc">Run automated quality checks — tests, type safety, performance, accessibility, design tokens — in one pass</div>
+      </div>
+
+      <Pipeline steps={QUALITY_PIPELINE_STEPS} activeUpto={doneStep} />
+
+      {/* Project */}
+      <div className="card">
+        <div className="card-title"><span className="card-title-icon">📁</span> Project to Audit</div>
+        <div className="field">
+          <label className="label">Project Root Path</label>
+          <input className="input" value={projectPath} onChange={e => setProjectPath(e.target.value)} />
+        </div>
+        <div className="info-box" style={{ marginTop: 12 }}>
+          Pointing at the bundled legacy React app — <b>App.jsx, Dashboard.jsx, UserCard.jsx, api.js, useUsers.js</b>. Change the path to audit any local project.
+        </div>
+      </div>
+
+      {/* Stage selector */}
+      <div className="card">
+        <div className="card-title"><span className="card-title-icon">⚙</span> Stages to Run
+          <span className="template-count">{selectedStages.length} / {QP_STAGES.length} selected</span>
+        </div>
+        <div className="toggle-group">
+          {QP_STAGES.map(s => (
+            <button
+              key={s.key}
+              className={`toggle-btn ${selectedStages.includes(s.key) ? 'on' : ''}`}
+              onClick={() => toggleStage(s.key)}
+            >
+              {s.icon} {s.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 10 }}>
+          Note: <b style={{ color: 'var(--text-2)' }}>Tests</b> and <b style={{ color: 'var(--text-2)' }}>Type Safety</b> require a configured test runner / tsconfig in the target project.
+        </div>
+      </div>
+
+      <div className="actions">
+        <button className="btn-primary" onClick={run} disabled={loading || selectedStages.length === 0}>
+          {loading ? <span className="spinner" /> : null}
+          {loading ? 'Running pipeline...' : 'Run Quality Check'}
+        </button>
+      </div>
+
+      {/* Results */}
+      {pipelineData && (
+        <div style={{ marginTop: 20 }}>
+          {/* Grade hero */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 20,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)', padding: '20px 24px', marginBottom: 16,
+          }}>
+            <div style={{ textAlign: 'center', minWidth: 72 }}>
+              <div style={{ fontSize: 48, fontWeight: 800, color: GRADE_COLOR[pipelineData.grade] ?? 'var(--accent)', lineHeight: 1 }}>
+                {pipelineData.grade}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>Overall Grade</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: STATUS_COLOR[pipelineData.overallStatus] }}>
+                {pipelineData.overallStatus === 'pass' ? '✓ All checks passed'
+                  : pipelineData.overallStatus === 'warn' ? '⚠ Some warnings found'
+                  : '✗ Issues require attention'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+                Completed {pipelineData.stages.filter(s => s.status !== 'skip').length} stages in {pipelineData.totalDuration}ms
+              </div>
+            </div>
+          </div>
+
+          {/* Stage breakdown */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pipelineData.stages.map(stage => {
+              const qpStage = QP_STAGES.find(s => s.label === stage.name || stage.name.toLowerCase().includes(s.key))
+              return (
+                <div key={stage.name} style={{
+                  background: 'var(--surface)', border: `1px solid var(--border)`,
+                  borderLeft: `3px solid ${STATUS_COLOR[stage.status]}`,
+                  borderRadius: 'var(--radius-sm)', padding: '12px 16px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  <span style={{ fontSize: 18, width: 24, textAlign: 'center', flexShrink: 0 }}>
+                    {qpStage?.icon ?? '◈'}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{stage.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{stage.summary}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{stage.duration > 0 ? `${stage.duration}ms` : ''}</span>
+                    <span style={{
+                      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                      background: STATUS_BG[stage.status], color: STATUS_COLOR[stage.status],
+                    }}>
+                      {stage.status.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Raw details toggle */}
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ fontSize: 12, color: 'var(--text-3)', cursor: 'pointer', padding: '8px 0' }}>
+              Raw details
+            </summary>
+            <div className="result-box" style={{ marginTop: 8 }}>
+              {JSON.stringify(pipelineData, null, 2)}
+            </div>
+          </details>
+        </div>
+      )}
+
+      {result && !pipelineData && <ResultPanel result={result} />}
+    </>
+  )
+}
+
+// ============================================================================
 // APP
 // ============================================================================
 
-type Page = 'factory' | 'modernizer'
+type Page = 'factory' | 'modernizer' | 'pipeline'
 
 const NAV = [
   { id: 'factory' as Page,    icon: '⬡', label: 'Component Factory' },
   { id: 'modernizer' as Page, icon: '⟳', label: 'Code Modernizer'   },
+  { id: 'pipeline' as Page,   icon: '◉', label: 'Quality Pipeline'  },
 ]
 
 // Workflow steps per page
@@ -680,6 +891,7 @@ export default function App() {
         <main className="main">
           {page === 'factory' && <ComponentFactoryPage />}
           {page === 'modernizer' && <CodeModernizerPage />}
+          {page === 'pipeline' && <QualityPipelinePage />}
         </main>
       </div>
     </>
