@@ -1,0 +1,21 @@
+{
+  "name": "mcp-showcase",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "tools/shared",
+    "tools/json-viewer",
+    "tools/component-factory",
+    "tools/code-modernizer",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "build": "npm run build -w tools/shared && npm run build -w tools/json-viewer && npm run build -w tools/component-factory && npm run build -w tools/code-modernizer && npm run build -w server",
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

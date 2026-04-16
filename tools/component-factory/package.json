@@ -1,0 +1,18 @@
+{
+  "name": "@mcp-showcase/component-factory",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@mcp-showcase/shared": "*",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
