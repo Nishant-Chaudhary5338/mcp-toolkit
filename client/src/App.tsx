@@ -626,13 +626,13 @@ function Pipeline({ steps, activeUpto }: { steps: typeof FACTORY_PIPELINE; activ
   return (
     <div className="pipeline">
       {steps.map((s, i) => (
-        <>
-          <div key={s.label} className="pipe-step">
+        <div key={s.label} style={{ display: 'contents' }}>
+          <div className="pipe-step">
             <div className={`pipe-icon ${i <= activeUpto ? 'active' : ''}`}>{s.icon}</div>
             <div className={`pipe-label ${i <= activeUpto ? 'active' : ''}`}>{s.label}</div>
           </div>
-          {i < steps.length - 1 && <span key={`arr-${i}`} className="pipe-arrow">→</span>}
-        </>
+          {i < steps.length - 1 && <span className="pipe-arrow">→</span>}
+        </div>
       ))}
     </div>
   )

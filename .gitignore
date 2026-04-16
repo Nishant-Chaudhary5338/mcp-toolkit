@@ -1,0 +1,10 @@
+node_modules/
+build/
+dist/
+.vite/
+*.js.map
+*.d.ts.map
+.DS_Store
+*.log
+.env
+.env.local
