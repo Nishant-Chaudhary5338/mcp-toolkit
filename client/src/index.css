@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #080808;
+  --surface: #111111;
+  --surface-2: #1a1a1a;
+  --border: #27272a;
+  --border-active: rgba(99, 102, 241, 0.4);
+  --text: #f8f8f8;
+  --text-2: #a1a1aa;
+  --text-3: #52525b;
+  --indigo: #6366f1;
+  --emerald: #10b981;
+  --amber: #f59e0b;
+  --rose: #f43f5e;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+.serif { font-family: var(--font-serif); }
+.mono { font-family: var(--font-mono); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Highlight.js theme (dark) */
+.hljs { background: transparent !important; color: #e2e8f0; }
+.hljs-keyword { color: #c084fc; }
+.hljs-string { color: #86efac; }
+.hljs-comment { color: #6b7280; font-style: italic; }
+.hljs-number { color: #fbbf24; }
+.hljs-function { color: #93c5fd; }
+.hljs-title { color: #6366f1; }
+.hljs-attr { color: #a5b4fc; }
+.hljs-tag { color: #f87171; }
+.hljs-built_in { color: #34d399; }
