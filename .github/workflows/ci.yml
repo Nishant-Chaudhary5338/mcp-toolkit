@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build shared package
+        run: npm run build -w tools/shared
+
+      - name: Build all tools
+        run: |
+          npm run build -w tools/json-viewer
+          npm run build -w tools/component-factory
+          npm run build -w tools/code-modernizer
+          npm run build -w tools/quality-pipeline
+          npm run build -w tools/dep-auditor
+          npm run build -w tools/accessibility-checker
+          npm run build -w tools/generate-tests
+          npm run build -w tools/typescript-enforcer
+          npm run build -w tools/monorepo-manager
+
+      - name: Build server
+        run: npm run build -w server
+
+      - name: Type check client
+        run: npm run typecheck -w client --if-present
+
+      - name: Run tests
+        run: |
+          npm run test -w tools/json-viewer
+          npm run test -w tools/quality-pipeline
+          npm run test -w tools/component-factory
+          npm run test -w tools/code-modernizer
+          npm run test -w tools/dep-auditor
+          npm run test -w tools/accessibility-checker
+          npm run test -w tools/generate-tests
+          npm run test -w tools/typescript-enforcer
+          npm run test -w tools/monorepo-manager
