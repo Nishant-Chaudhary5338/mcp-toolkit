@@ -5,18 +5,12 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { calculateGrade } from './utils.js';
+import type { PipelineStage } from './utils.js';
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
-interface PipelineStage {
-  name: string;
-  status: 'pass' | 'fail' | 'warn' | 'skip';
-  duration: number;
-  summary: string;
-  details: unknown;
-}
 
 interface PipelineResult {
   overallStatus: 'pass' | 'fail' | 'warn';
@@ -54,17 +48,6 @@ function readSourceFiles(dir: string, exts: string[]): Array<{ file: string; con
       const content = fs.readFileSync(file, 'utf-8');
       return { file, content, lines: content.split('\n') };
     });
-}
-
-function calculateGrade(stages: PipelineStage[]): string {
-  const active = stages.filter(s => s.status !== 'skip');
-  const fails = active.filter(s => s.status === 'fail').length;
-  const warns = active.filter(s => s.status === 'warn').length;
-  if (fails === 0 && warns === 0) return 'A';
-  if (fails === 0 && warns === 1) return 'B';
-  if (fails === 0 && warns <= 2) return 'C';
-  if (fails === 1) return 'D';
-  return 'F';
 }
 
 // ============================================================================
