@@ -156,7 +156,7 @@ class DepAuditorServer extends McpServerBase {
         }
 
         return this.success({
-          summary: `Found ${results.reduce((n, r) => n + (r as { unusedDeps: string[] }).unusedDeps.length, 0)} potentially unused deps across ${results.length} packages`,
+          summary: `Found ${results.reduce((n: number, r) => n + (r as { unusedDeps: string[] }).unusedDeps.length, 0)} potentially unused deps across ${results.length} packages`,
           packagesAudited: filtered.length,
           results,
         });
