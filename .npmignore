@@ -1,0 +1,10 @@
+client/
+server/
+demo-legacy-app/
+tools/*/src/
+tools/*/node_modules/
+node_modules/
+.github/
+*.test.ts
+*.test.js
+tsconfig*.json
