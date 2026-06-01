@@ -1,0 +1,30 @@
+# MCP Toolkit
+
+> Deterministic dev automation that never leaves your machine. 9 MCP servers, 60+ tools, 134 tests — all local, no API keys, no inference.
+
+## Overview
+
+MCP Toolkit is a collection of 9 Model Context Protocol servers exposing 60+ typed tools for React + TypeScript development. Tools run identically in Claude Desktop, Cline, Cursor, and CI pipelines via JSON-RPC over stdio.
+
+## Servers
+
+- [Component Factory](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/component-factory) — Scaffold new @repo/ui components from scratch
+- [Component Fixer](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/component-fixer) — Fix broken imports, resolve missing dependencies
+- [Component Improver](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/component-improver) — Add variants, Storybook stories, comprehensive tests
+- [Component Reviewer](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/component-reviewer) — Audit TypeScript errors, test coverage gaps, a11y
+- [Code Modernizer](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/code-modernizer) — Convert JS to TS, generate types, optimise state
+- [Quality Pipeline](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/quality-pipeline) — Integrated QA — runs multiple tools in sequence
+- [Generate Tests](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/generate-tests) — Auto-generate Vitest unit + integration tests
+- [Performance Audit](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/performance-audit) — Runtime performance analysis
+- [Accessibility Checker](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/tree/main/tools/accessibility-checker) — WCAG compliance audit
+
+## Quick Start
+
+```bash
+npx @mcp-toolkit/init
+```
+
+## Links
+
+- [GitHub Repository](https://github.com/Nishant-Chaudhary5338/mcp-toolkit)
+- [Documentation](https://github.com/Nishant-Chaudhary5338/mcp-toolkit#readme)
