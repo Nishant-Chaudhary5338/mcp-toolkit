@@ -1,14 +1,72 @@
 // ============================================================================
 // CONVERT TO TYPESCRIPT
-// Rename .js/.jsx to .ts/.tsx, add basic type annotations
+// Rename .js/.jsx to .ts/.tsx, add TypeScript type annotations
 // ============================================================================
 
 import * as path from 'path';
 import fs from 'fs-extra';
 import { parseFile, hasJSX, extractFunctions } from '../utils/ast-parser.js';
 import { listFiles, renameFile, writeFile } from '../utils/file-ops.js';
-import { generatePropsInterface, generateParamType, generateFileHeader } from '../utils/type-generator.js';
+import { generatePropsInterface, generateFileHeader } from '../utils/type-generator.js';
 import type { ConvertToTypeScriptInput, ConvertToTypeScriptOutput, ConvertedFile } from '../types.js';
+
+function buildTypedContent(content: string, functions: ReturnType<typeof extractFunctions>, includeProps: boolean): { newContent: string; addedTypes: string[] } {
+  const addedTypes: string[] = [];
+  let newContent = content;
+
+  if (!includeProps) return { newContent, addedTypes };
+
+  // Collect all interfaces to inject after the last import line
+  const interfacesToInject: string[] = [];
+
+  for (const fn of functions) {
+    if (!fn.isComponent || fn.params.length === 0) continue;
+
+    const param = fn.params[0];
+    // Only generate for destructured object params or named params
+    if (param === '{...}' || param === '[...]' || param === '...') continue;
+
+    // Don't regenerate if interface already exists
+    const existingInterface = new RegExp(`interface\\s+${fn.name}Props\\s*\\{`);
+    if (existingInterface.test(content)) continue;
+
+    const iface = generatePropsInterface(fn.name, fn.params);
+    interfacesToInject.push(iface);
+    addedTypes.push(`${fn.name}Props`);
+
+    // Also annotate the function signature if it uses destructuring
+    if (param.startsWith('{') && !content.includes(`: ${fn.name}Props`)) {
+      const destructured = param; // e.g. {label,onClick,disabled}
+      // Try to replace the function signature to add type annotation
+      // Handles: function Foo({ ... }) and const Foo = ({ ... }) =>
+      const fnDeclPattern = new RegExp(
+        `((?:export\\s+)?(?:default\\s+)?function\\s+${fn.name}\\s*\\()${destructured.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s*\\))`,
+        'g'
+      );
+      const arrowPattern = new RegExp(
+        `((?:export\\s+)?const\\s+${fn.name}[^=]*=\\s*(?:React\\.memo\\(\\s*)?(?:React\\.forwardRef\\([^)]*,\\s*)?)\\(${destructured.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s*)\\)`,
+        'g'
+      );
+
+      const annotated = `${destructured}: ${fn.name}Props`;
+      newContent = newContent.replace(fnDeclPattern, `$1${annotated}$2`);
+      newContent = newContent.replace(arrowPattern, `$1(${annotated}$2)`);
+    }
+  }
+
+  if (interfacesToInject.length > 0) {
+    const header = generateFileHeader('convert-to-typescript');
+    const importLines = newContent.match(/^import\s.*$/gm) || [];
+    const insertPos = importLines.length > 0
+      ? newContent.lastIndexOf(importLines[importLines.length - 1]) + importLines[importLines.length - 1].length
+      : 0;
+
+    const block = '\n\n' + header + interfacesToInject.join('\n\n') + '\n';
+    newContent = newContent.slice(0, insertPos) + block + newContent.slice(insertPos);
+  }
+
+  return { newContent, addedTypes };
+}
 
 export async function convertToTypeScript(
   input: ConvertToTypeScriptInput
@@ -41,62 +99,38 @@ export async function convertToTypeScript(
       const { content, ast } = parsed;
       const containsJSX = hasJSX(ast);
       const ext = path.extname(filePath);
-      let newExt: string;
-
-      if (ext === '.jsx') { newExt = '.tsx'; }
-      else if (ext === '.js' && containsJSX) { newExt = '.tsx'; }
-      else { newExt = '.ts'; }
-
+      const newExt = ext === '.jsx' ? '.tsx' : (containsJSX ? '.tsx' : '.ts');
       const newPath = filePath.replace(ext, newExt);
+
       const functions = extractFunctions(ast);
-      const addedTypes: string[] = [];
-      const issues: string[] = [];
+      const { newContent, addedTypes } = buildTypedContent(content, functions, includeProps);
 
-      if (includeProps) {
-        for (const fn of functions) {
-          if (fn.isComponent && fn.params.length > 0 && fn.params[0] !== '{...}') {
-            const propsInterface = generatePropsInterface(fn.name, fn.params);
-            addedTypes.push(propsInterface);
-          }
-        }
+      if (dryRun) {
+        convertedFiles.push({
+          originalPath: relativePath,
+          newPath: path.relative(projectPath, newPath),
+          addedTypes,
+          issues: [],
+          previewContent: newContent !== content ? newContent : undefined,
+        });
+        continue;
       }
 
-      let newContent = content;
-      for (const fn of functions) {
-        for (const param of fn.params) {
-          if (param !== '{...}' && param !== '[...]' && param !== '...') {
-            const type = generateParamType(param);
-            if (type !== 'unknown') addedTypes.push(`${fn.name}(${param}: ${type})`);
-          }
-        }
+      const renameResult = await renameFile(filePath, newPath);
+      if (!renameResult.success) {
+        errors.push(`Failed to rename ${relativePath}: ${renameResult.error}`);
+        continue;
       }
 
-      if (!dryRun) {
-        const renameResult = await renameFile(filePath, newPath);
-        if (!renameResult.success) {
-          errors.push(`Failed to rename ${relativePath}: ${renameResult.error}`);
-          continue;
-        }
-
-        if (addedTypes.length > 0) {
-          const propsInterfaces = addedTypes.filter(t => t.includes('interface'));
-          if (propsInterfaces.length > 0) {
-            const header = generateFileHeader('convert-to-typescript');
-            const imports = newContent.match(/^import.*$/gm) || [];
-            const lastImportIndex = imports.length > 0
-              ? newContent.lastIndexOf(imports[imports.length - 1]) + imports[imports.length - 1].length
-              : 0;
-            newContent = newContent.slice(0, lastImportIndex) + '\n\n' + propsInterfaces.join('\n\n') + '\n' + newContent.slice(lastImportIndex);
-          }
-          await writeFile(newPath, newContent);
-        }
+      if (newContent !== content) {
+        await writeFile(newPath, newContent);
       }
 
       convertedFiles.push({
         originalPath: relativePath,
         newPath: path.relative(projectPath, newPath),
         addedTypes,
-        issues,
+        issues: [],
       });
     } catch (error) {
       errors.push(`Error processing ${path.relative(projectPath, filePath)}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -106,7 +140,7 @@ export async function convertToTypeScript(
   return {
     success: errors.length === 0,
     convertedFiles,
-    skippedFiles: skippedFiles.map(f => path.relative(projectPath, f)),
+    skippedFiles,
     errors,
     summary: {
       totalFiles: jsFiles.length,

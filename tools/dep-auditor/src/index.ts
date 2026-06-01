@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadJson, safeReadFile } from '@mcp-showcase/shared';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -38,22 +38,71 @@ export function findMonorepoRoot(startDir: string): string {
   throw new Error('No monorepo root found (no pnpm-workspace.yaml or turbo.json)');
 }
 
-export function getAllPackages(root: string): MonorepoPackage[] {
-  const dirs = ['apps', 'packages', 'tools'] as const;
-  const packages: MonorepoPackage[] = [];
-
-  for (const dir of dirs) {
-    const dirPath = path.join(root, dir);
-    if (!fs.existsSync(dirPath)) continue;
-    for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const pkgJson = path.join(dirPath, entry.name, 'package.json');
-      if (fs.existsSync(pkgJson)) {
-        const pkg: PackageJson = JSON.parse(fs.readFileSync(pkgJson, 'utf-8'));
-        packages.push({ name: pkg.name ?? entry.name, path: path.join(dirPath, entry.name), pkg });
-      }
+export function readWorkspacePatterns(root: string): string[] {
+  const pnpmWs = path.join(root, 'pnpm-workspace.yaml');
+  if (fs.existsSync(pnpmWs)) {
+    const content = fs.readFileSync(pnpmWs, 'utf-8');
+    const match = content.match(/packages:\s*\n((?:\s+-\s+.+\n?)+)/);
+    if (match) {
+      return match[1]
+        .split('\n')
+        .filter(l => l.trim().startsWith('-'))
+        .map(l => l.replace(/.*-\s+['"]?/, '').replace(/['"].*$/, '').trim())
+        .filter(Boolean);
     }
   }
+  const rootPkg = safeReadJson<{ workspaces?: string[] }>(path.join(root, 'package.json'));
+  if (Array.isArray(rootPkg?.workspaces)) return rootPkg!.workspaces;
+  return ['apps/*', 'packages/*', 'tools/*'];
+}
+
+function expandPattern(pattern: string, root: string): string[] {
+  const wildcardIdx = pattern.indexOf('*');
+  if (wildcardIdx === -1) {
+    const fullPath = path.join(root, pattern);
+    if (fs.existsSync(path.join(fullPath, 'package.json'))) return [fullPath];
+    return [];
+  }
+  const beforeWildcard = pattern.slice(0, wildcardIdx).replace(/\/$/, '');
+  const afterWildcard = pattern.slice(wildcardIdx + 1).replace(/^\//, '');
+  const baseDir = path.join(root, beforeWildcard);
+  if (!fs.existsSync(baseDir)) return [];
+  const result: string[] = [];
+  try {
+    for (const entry of fs.readdirSync(baseDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      const matchedDir = path.join(baseDir, entry.name);
+      if (afterWildcard === '') {
+        if (fs.existsSync(path.join(matchedDir, 'package.json'))) result.push(matchedDir);
+      } else {
+        result.push(...expandPattern(afterWildcard, matchedDir));
+      }
+    }
+  } catch { /* unreadable dir */ }
+  return result;
+}
+
+export function getAllPackages(root: string): MonorepoPackage[] {
+  const patterns = readWorkspacePatterns(root);
+  const packages: MonorepoPackage[] = [];
+  const seen = new Set<string>();
+
+  for (const pattern of patterns) {
+    for (const pkgPath of expandPattern(pattern, root)) {
+      if (seen.has(pkgPath)) continue;
+      seen.add(pkgPath);
+      const pkg = safeReadJson<PackageJson>(path.join(pkgPath, 'package.json'));
+      if (!pkg) continue;
+      packages.push({ name: pkg.name ?? path.basename(pkgPath), path: pkgPath, pkg });
+    }
+  }
+
+  // Fallback: treat root itself as single package when no workspace packages found
+  if (packages.length === 0) {
+    const rootPkg = safeReadJson<PackageJson>(path.join(root, 'package.json'));
+    if (rootPkg) packages.push({ name: rootPkg.name ?? path.basename(root), path: root, pkg: rootPkg });
+  }
+
   return packages;
 }
 
@@ -63,8 +112,9 @@ export function scanSourceFiles(
 ): string[] {
   const files: string[] = [];
   if (!fs.existsSync(dir)) return files;
-  const SKIP = new Set(['node_modules', 'build', 'dist', '.next', '__tests__', '.git']);
+  const SKIP = new Set(['node_modules', 'build', 'dist', '.next', '.turbo', '__tests__', '.git', 'coverage', 'out']);
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP.has(entry.name)) continue;
@@ -142,7 +192,7 @@ class DepAuditorServer extends McpServerBase {
           ]);
           const usedDeps = new Set<string>();
           for (const file of scanSourceFiles(path.join(pkg.path, 'src'))) {
-            for (const imp of extractImports(fs.readFileSync(file, 'utf-8'))) {
+            for (const imp of extractImports(safeReadFile(file) ?? '')) {
               const ext = getExternalPackageName(imp);
               if (ext) usedDeps.add(ext);
             }
@@ -284,7 +334,7 @@ class DepAuditorServer extends McpServerBase {
           const usedInSrc = new Set<string>();
 
           for (const file of scanSourceFiles(path.join(pkg.path, 'src'))) {
-            for (const imp of extractImports(fs.readFileSync(file, 'utf-8'))) {
+            for (const imp of extractImports(safeReadFile(file) ?? '')) {
               const ext = getExternalPackageName(imp);
               if (ext) usedInSrc.add(ext);
             }

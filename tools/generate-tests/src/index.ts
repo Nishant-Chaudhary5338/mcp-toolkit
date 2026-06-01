@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadFile, isServerComponent, NEXTJS_ROUTE_FILES } from '@mcp-showcase/shared';
 import * as fs from 'fs';
 import * as path from 'path';
 import { analyzeSource } from './analyzer.js';
@@ -8,8 +8,9 @@ import { generateComponentTests, generateFunctionTests, generateHookTests, gener
 function scanDirectory(dir: string, exts: string[] = ['.ts', '.tsx', '.js', '.jsx']): string[] {
   const files: string[] = [];
   if (!fs.existsSync(dir)) return files;
-  const SKIP = new Set(['node_modules', 'build', 'dist', '.next']);
+  const SKIP = new Set(['node_modules', 'build', 'dist', '.next', '.turbo', '.git', 'coverage', 'out']);
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP.has(entry.name)) continue;
@@ -63,29 +64,41 @@ class GenerateTestsServer extends McpServerBase {
           const resolved = path.resolve(srcPath);
           if (!fs.existsSync(resolved)) throw new Error(`File not found: ${resolved}`);
 
-          const content = fs.readFileSync(resolved, 'utf-8');
+          const content = safeReadFile(resolved);
+          if (content === null) throw new Error(`File too large or unreadable: ${resolved}`);
+
+          // Skip Next.js server-only route files — they can't be rendered with RTL
+          const fileName = path.basename(resolved);
+          if (NEXTJS_ROUTE_FILES.has(fileName) && isServerComponent(resolved, content)) {
+            return this.success({
+              message: `Skipped ${fileName}: Next.js Server Component route files require integration-style tests`,
+              isServerComponent: true,
+              file: resolved,
+            });
+          }
+
           const analysis = analyzeSource(content);
 
           const testSections: string[] = [];
 
           for (const c of analysis.components) {
-            testSections.push(`// --- ${c.name} ---\n${generateComponentTests(c)}`);
+            testSections.push(generateComponentTests(c));
           }
           for (const h of analysis.hooks) {
-            testSections.push(`// --- ${h.name} ---\n${generateHookTests(h)}`);
+            testSections.push(generateHookTests(h));
           }
           for (const f of analysis.functions) {
-            testSections.push(`// --- ${f.name} ---\n${generateFunctionTests(f)}`);
+            testSections.push(generateFunctionTests(f));
           }
           for (const cl of analysis.classes) {
-            testSections.push(`// --- ${cl.name} ---\n${generateClassTests(cl)}`);
+            testSections.push(generateClassTests(cl));
           }
 
           if (testSections.length === 0) {
             return this.success({ message: 'No exportable symbols found to generate tests for', analysis });
           }
 
-          const testContent = testSections.join('\n\n');
+          const testContent = testSections.join('\n');
           const dest = outputPath ? path.resolve(outputPath) : testFilePath(resolved);
 
           if (fs.existsSync(dest) && !overwrite) {
@@ -134,7 +147,11 @@ class GenerateTestsServer extends McpServerBase {
           const skipped: string[] = [];
 
           for (const file of files) {
-            const content = fs.readFileSync(file, 'utf-8');
+            const content = safeReadFile(file);
+            if (content === null) continue;
+            // Skip Next.js server-only route files
+            const fname = path.basename(file);
+            if (NEXTJS_ROUTE_FILES.has(fname) && isServerComponent(file, content)) continue;
             const analysis = analyzeSource(content);
             const hasSymbols = analysis.components.length + analysis.hooks.length + analysis.functions.length + analysis.classes.length > 0;
             if (!hasSymbols) continue;
@@ -151,7 +168,7 @@ class GenerateTestsServer extends McpServerBase {
             for (const f of analysis.functions) sections.push(generateFunctionTests(f));
             for (const cl of analysis.classes) sections.push(generateClassTests(cl));
 
-            fs.writeFileSync(dest, sections.join('\n\n'), 'utf-8');
+            fs.writeFileSync(dest, sections.join('\n'), 'utf-8');
             generated.push(path.relative(resolved, dest));
           }
 

@@ -30,6 +30,7 @@ export interface FileScanResult {
     total: number;
   };
   score: number; // 0-10, 10 = no violations
+  skipped?: boolean; // file was too large or unreadable
 }
 
 export interface DirectoryScanResult {

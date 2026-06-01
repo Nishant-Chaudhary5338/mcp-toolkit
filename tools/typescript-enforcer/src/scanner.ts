@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { safeReadFile } from '@mcp-showcase/shared';
 import type { Violation, FileScanResult, DirectoryScanResult, ScanOptions, RuleName } from './types.js';
 import { checkNoAny } from './rules/no-any.js';
 import { checkGenerics } from './rules/generics.js';
@@ -22,7 +23,16 @@ const RULES: Record<RuleName, RuleChecker> = {
 };
 
 export function scanFile(filePath: string, options: ScanOptions = {}): FileScanResult {
-  const source = fs.readFileSync(filePath, 'utf-8');
+  const source = safeReadFile(filePath);
+  if (source === null) {
+    return {
+      file: filePath,
+      violations: [],
+      summary: { errors: 0, warnings: 0, infos: 0, total: 0 },
+      score: 10,
+      skipped: true,
+    };
+  }
   const rulesToRun = options.rules || Object.keys(RULES) as RuleName[];
   const minSeverity = options.severity || 'info';
 
@@ -72,6 +82,7 @@ function scanDirectoryRecursive(dir: string, options: ScanOptions = {}): string[
 
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
+    if (entry.isSymbolicLink()) continue;
     const fullPath = path.join(dir, entry.name);
 
     if (ignorePatterns.some(pattern => entry.name.includes(pattern))) continue;

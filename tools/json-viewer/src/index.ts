@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadJson } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -207,6 +207,32 @@ class JsonViewerServer extends McpServerBase {
     );
 
     this.addTool(
+      'view_json_file',
+      'Read a JSON file from disk and open an interactive HTML viewer — no need to paste raw JSON.',
+      {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute or relative path to the JSON file' },
+          label: { type: 'string', description: 'Label for this viewer (defaults to the filename)' },
+          open: { type: 'boolean', description: 'Automatically open in browser (default: true)', default: true },
+        },
+        required: ['path'],
+      },
+      async (args) => {
+        const { path: filePath, label, open = true } = args as { path: string; label?: string; open?: boolean };
+        try {
+          const resolved = path.resolve(filePath);
+          if (!fs.existsSync(resolved)) throw new Error(`File not found: ${resolved}`);
+          const raw = fs.readFileSync(resolved, 'utf-8');
+          const derivedLabel = label ?? path.basename(resolved);
+          return this.handleViewJson({ data: raw, label: derivedLabel, open });
+        } catch (error) {
+          return this.error(error);
+        }
+      }
+    );
+
+    this.addTool(
       'list_responses',
       'List all saved JSON responses with timestamps and metadata.',
       {
@@ -232,7 +258,7 @@ class JsonViewerServer extends McpServerBase {
     );
   }
 
-  private async handleViewJson(args: unknown): Promise<ToolResult> {
+  async handleViewJson(args: unknown): Promise<ToolResult> {
     const { data, label = 'response', open = true } = args as {
       data: string;
       label?: string;
@@ -295,9 +321,8 @@ class JsonViewerServer extends McpServerBase {
 
       const responses: SavedResponse[] = [];
       for (const file of files) {
-        try {
-          responses.push(JSON.parse(fs.readFileSync(path.join(RESPONSES_DIR, file), 'utf-8')));
-        } catch { /* skip corrupted */ }
+        const entry = safeReadJson<SavedResponse>(path.join(RESPONSES_DIR, file));
+        if (entry) responses.push(entry);
       }
       return this.success({ total: responses.length, responses });
     } catch (error) {
@@ -312,7 +337,8 @@ class JsonViewerServer extends McpServerBase {
       const metaPath = path.join(RESPONSES_DIR, `${id}.meta.json`);
       if (!fs.existsSync(metaPath)) throw new Error(`Response not found: ${id}`);
 
-      const meta: SavedResponse = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+      const meta = safeReadJson<SavedResponse>(metaPath);
+      if (!meta) throw new Error(`Could not read metadata for: ${id}`);
       if (!fs.existsSync(meta.htmlPath)) throw new Error(`HTML viewer not found for: ${id}`);
 
       const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';

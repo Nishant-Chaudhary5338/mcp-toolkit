@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadJson, safeReadFile } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
@@ -24,11 +24,12 @@ interface PipelineResult {
 // HELPERS
 // ============================================================================
 
-function scanDirectory(dir: string, exts: string[], skipDirs = ['node_modules', 'build', 'dist', '.next', '.turbo', 'coverage']): string[] {
+function scanDirectory(dir: string, exts: string[], skipDirs = ['node_modules', 'build', 'dist', '.next', '.turbo', 'coverage', 'out', '.git', '.cache']): string[] {
   const files: string[] = [];
   if (!fs.existsSync(dir)) return files;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
+    if (entry.isSymbolicLink()) continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (skipDirs.includes(entry.name)) continue;
@@ -44,9 +45,10 @@ function scanDirectory(dir: string, exts: string[], skipDirs = ['node_modules', 
 function readSourceFiles(dir: string, exts: string[]): Array<{ file: string; content: string; lines: string[] }> {
   return scanDirectory(dir, exts)
     .filter(f => !f.includes('.test.') && !f.includes('.spec.') && !f.includes('.stories.') && !f.includes('__tests__'))
-    .map(file => {
-      const content = fs.readFileSync(file, 'utf-8');
-      return { file, content, lines: content.split('\n') };
+    .flatMap(file => {
+      const content = safeReadFile(file);
+      if (content === null) return [];
+      return [{ file, content, lines: content.split('\n') }];
     });
 }
 
@@ -58,19 +60,44 @@ function runTestStage(projectRoot: string): PipelineStage {
   const start = Date.now();
 
   const hasVitest = fs.existsSync(path.join(projectRoot, 'vitest.config.ts'))
-    || fs.existsSync(path.join(projectRoot, 'vitest.config.js'));
+    || fs.existsSync(path.join(projectRoot, 'vitest.config.js'))
+    || fs.existsSync(path.join(projectRoot, 'vitest.config.mts'));
   const hasJest = fs.existsSync(path.join(projectRoot, 'jest.config.js'))
-    || fs.existsSync(path.join(projectRoot, 'jest.config.ts'));
+    || fs.existsSync(path.join(projectRoot, 'jest.config.ts'))
+    || fs.existsSync(path.join(projectRoot, 'jest.config.cjs'));
+  const hasPlaywright = fs.existsSync(path.join(projectRoot, 'playwright.config.ts'))
+    || fs.existsSync(path.join(projectRoot, 'playwright.config.js'))
+    || fs.existsSync(path.join(projectRoot, 'playwright.config.mts'));
 
   if (!hasVitest && !hasJest) {
-    // Check package.json test script
+    if (hasPlaywright) {
+      return {
+        name: 'Tests',
+        status: 'skip',
+        duration: 0,
+        summary: 'Playwright e2e tests detected — unit test runner (vitest/jest) not found',
+        details: { runner: 'playwright', note: 'Run `npx playwright test` separately for e2e coverage' },
+      };
+    }
+    // Check package.json test script as last resort
     const pkgPath = path.join(projectRoot, 'package.json');
     if (!fs.existsSync(pkgPath)) {
       return { name: 'Tests', status: 'skip', duration: 0, summary: 'No test runner found', details: {} };
     }
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-    if (!pkg.scripts?.test) {
+    const pkg = safeReadJson<{ scripts?: { test?: string } }>(pkgPath);
+    const testScript = pkg?.scripts?.test ?? '';
+    if (!testScript) {
       return { name: 'Tests', status: 'skip', duration: 0, summary: 'No test script in package.json', details: {} };
+    }
+    // If the test script invokes playwright, treat as e2e-only
+    if (testScript.includes('playwright')) {
+      return {
+        name: 'Tests',
+        status: 'skip',
+        duration: 0,
+        summary: 'Playwright e2e tests detected via package.json — unit test runner not found',
+        details: { runner: 'playwright' },
+      };
     }
   }
 
@@ -87,8 +114,11 @@ function runTestStage(projectRoot: string): PipelineStage {
         // vitest exits non-zero when tests fail — that's fine, result file still written
       }
       if (fs.existsSync(outFile)) {
-        const data = JSON.parse(fs.readFileSync(outFile, 'utf-8'));
+        const data = safeReadJson<{ numPassedTests?: number; numFailedTests?: number; numPendingTests?: number }>(outFile);
         fs.unlinkSync(outFile);
+        if (!data) {
+          return { name: 'Tests', status: 'warn', duration: Date.now() - start, summary: 'Could not parse vitest output', details: {} };
+        }
         const passed = data.numPassedTests ?? 0;
         const failed = data.numFailedTests ?? 0;
         const skipped = data.numPendingTests ?? 0;
@@ -100,13 +130,17 @@ function runTestStage(projectRoot: string): PipelineStage {
           details: { passed, failed, skipped, runner: 'vitest' },
         };
       }
-      // fallback: parse vitest verbose text output
-      const output = execSync(
-        `npx vitest run 2>&1 || true`,
-        { cwd: projectRoot, encoding: 'utf-8', timeout: 120000 }
-      );
-      const passMatch = output.match(/(\d+)\s+passed/);
-      const failMatch = output.match(/(\d+)\s+failed/);
+      // fallback: vitest binary not available or output file not written — check binary first
+      const vitestBin = path.join(projectRoot, 'node_modules', '.bin', 'vitest');
+      if (!fs.existsSync(vitestBin)) {
+        return { name: 'Tests', status: 'skip', duration: Date.now() - start, summary: 'vitest not installed in project', details: {} };
+      }
+      let output = '';
+      try {
+        output = execSync(`npx vitest run 2>&1 || true`, { cwd: projectRoot, encoding: 'utf-8', timeout: 120000 });
+      } catch { /* ignore */ }
+      const passMatch = output?.match(/(\d+)\s+passed/);
+      const failMatch = output?.match(/(\d+)\s+failed/);
       const passed = passMatch ? parseInt(passMatch[1]) : 0;
       const failed = failMatch ? parseInt(failMatch[1]) : 0;
       return {

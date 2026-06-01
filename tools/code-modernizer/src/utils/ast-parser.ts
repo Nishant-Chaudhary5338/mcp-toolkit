@@ -107,24 +107,39 @@ export function extractFunctions(ast: unknown): FunctionInfo[] {
   }
   collectExports(ast);
 
+  function extractParamName(p: unknown): string {
+    if (!p || typeof p !== 'object') return '...';
+    const node = p as Record<string, unknown>;
+    if (node.type === 'Identifier') return node.name as string;
+    if (node.type === 'ObjectPattern') {
+      const props = (node.properties as unknown[] ?? []).map(prop => {
+        if (!prop || typeof prop !== 'object') return '';
+        const pNode = prop as Record<string, unknown>;
+        if (pNode.type === 'RestElement') return '...rest';
+        const key = pNode.key as Record<string, unknown> | undefined;
+        return (key?.name as string) || '';
+      }).filter(Boolean);
+      return props.length > 0 ? `{${props.join(',')}}` : '{...}';
+    }
+    if (node.type === 'ArrayPattern') return '[...]';
+    if (node.type === 'RestElement') return '...rest';
+    if (node.type === 'AssignmentPattern') {
+      const left = node.left as Record<string, unknown>;
+      return (left?.name as string) || '...';
+    }
+    return '...';
+  }
+
   function walk(node: unknown) {
     if (!node || typeof node !== 'object') return;
     if (node.type === 'FunctionDeclaration' && node.id?.name) {
-      const params = (node.params || []).map((p: unknown) => {
-        if (p.type === 'Identifier') return p.name;
-        if (p.type === 'ObjectPattern') return '{...}';
-        return '...';
-      });
+      const params = (node.params || []).map(extractParamName);
       functions.push({ name: node.id.name, params, line: node.loc?.start?.line || 0, isExported: exportedNames.has(node.id.name), isComponent: /^[A-Z]/.test(node.id.name) });
     }
     if (node.type === 'VariableDeclarator' && node.init) {
       const initType = node.init.type;
       if ((initType === 'ArrowFunctionExpression' || initType === 'FunctionExpression') && node.id?.name) {
-        const params = (node.init.params || []).map((p: unknown) => {
-          if (p.type === 'Identifier') return p.name;
-          if (p.type === 'ObjectPattern') return '{...}';
-          return '...';
-        });
+        const params = (node.init.params || []).map(extractParamName);
         functions.push({ name: node.id.name, params, line: node.loc?.start?.line || 0, isExported: exportedNames.has(node.id.name), isComponent: /^[A-Z]/.test(node.id.name) });
       }
     }

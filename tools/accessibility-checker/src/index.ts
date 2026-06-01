@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadFile } from '@mcp-showcase/shared';
 import * as fs from 'fs';
 import * as path from 'path';
 import { analyzeFile, filterByImpact } from './rules.js';
@@ -8,8 +8,9 @@ import type { A11yIssue } from './rules.js';
 function scanDirectory(dir: string, exts: string[] = ['.tsx', '.jsx', '.html']): string[] {
   const files: string[] = [];
   if (!fs.existsSync(dir)) return files;
-  const SKIP = new Set(['node_modules', 'build', 'dist', '.next', '__tests__']);
+  const SKIP = new Set(['node_modules', 'build', 'dist', '.next', '.turbo', '__tests__', '.git', 'coverage', 'out']);
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP.has(entry.name)) continue;
@@ -17,8 +18,7 @@ function scanDirectory(dir: string, exts: string[] = ['.tsx', '.jsx', '.html']):
     } else if (
       exts.some(e => entry.name.endsWith(e)) &&
       !entry.name.includes('.test.') &&
-      !entry.name.includes('.spec.') &&
-      !entry.name.includes('.stories.')
+      !entry.name.includes('.spec.')
     ) {
       files.push(fullPath);
     }
@@ -31,7 +31,9 @@ function readAndAnalyze(targetPath: string): { files: string[]; issues: A11yIssu
   const files = stat.isDirectory() ? scanDirectory(targetPath) : [targetPath];
   const issues: A11yIssue[] = [];
   for (const file of files) {
-    issues.push(...analyzeFile(file, fs.readFileSync(file, 'utf-8')));
+    const content = safeReadFile(file);
+    if (content === null) continue;
+    issues.push(...analyzeFile(file, content));
   }
   return { files, issues };
 }

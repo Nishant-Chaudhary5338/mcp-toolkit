@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadJson, isNextJsProject } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -267,6 +267,18 @@ class ComponentFactoryServer extends McpServerBase {
       const componentDir = path.join(outputPath, name);
       const resolvedDir = path.resolve(componentDir);
 
+      // Prevent writes to dangerous root paths
+      const dangerousRoots = ['/', '/Users', '/home', '/etc', '/usr', '/var', '/tmp'];
+      if (dangerousRoots.includes(resolvedDir) || !path.isAbsolute(resolvedDir)) {
+        return this.error(new Error(`Refusing to write to unsafe path: ${resolvedDir}`));
+      }
+
+      // Warn if outputting into a Next.js app/ directory (would conflict with routing)
+      const appDirMarker = path.sep + 'app' + path.sep;
+      if (resolvedDir.includes(appDirMarker) && isNextJsProject(path.dirname(outputPath))) {
+        return this.error(new Error(`Cannot generate components inside app/ — this would conflict with Next.js routing. Use a components/ directory instead.`));
+      }
+
       if (fs.existsSync(resolvedDir)) fs.rmSync(resolvedDir, { recursive: true, force: true });
       fs.mkdirSync(resolvedDir, { recursive: true });
 
@@ -326,20 +338,66 @@ class ComponentFactoryServer extends McpServerBase {
     const results: unknown[] = [];
     for (const componentName of components) {
       const result = await this.handleGenerateComponent({ name: componentName, outputPath, includeTests, includeStories, includeTypes: true, includeDocs: true });
-      results.push(JSON.parse(result.content[0].text || '{}'));
+      results.push(safeReadJson(result.content[0].text || '{}') ?? { success: false, component: componentName });
     }
     return this.success({ totalComponents: components.length, results, message: `Generated ${components.length} components` });
   }
 
   private async handleCheckExists(args: unknown): Promise<ToolResult> {
     const { name, outputPath } = args as { name: string; outputPath: string };
-    const componentDir = path.join(outputPath, name);
-    const exists = fs.existsSync(componentDir);
+    const resolved = path.resolve(outputPath);
+
+    // 1. Directory-per-component layout: outputPath/Name/Name.tsx
+    const componentDir = path.join(resolved, name);
+    const dirLayoutFile = path.join(componentDir, `${name}.tsx`);
+    if (fs.existsSync(dirLayoutFile)) {
+      return this.success({
+        exists: true,
+        layout: 'directory',
+        path: componentDir,
+        files: fs.readdirSync(componentDir),
+        message: `Component ${name} exists (directory layout at ${componentDir})`,
+      });
+    }
+
+    // 2. Flat layout: outputPath/Name.tsx  or  outputPath/name.tsx
+    const flatFile = fs.existsSync(path.join(resolved, `${name}.tsx`))
+      ? path.join(resolved, `${name}.tsx`)
+      : fs.existsSync(path.join(resolved, `${name.toLowerCase()}.tsx`))
+        ? path.join(resolved, `${name.toLowerCase()}.tsx`)
+        : null;
+    if (flatFile) {
+      return this.success({
+        exists: true,
+        layout: 'flat',
+        path: flatFile,
+        files: [path.basename(flatFile)],
+        message: `Component ${name} exists (flat layout at ${flatFile})`,
+      });
+    }
+
+    // 3. Index re-export: outputPath/Name/index.ts or outputPath/Name/index.tsx
+    const indexFile = fs.existsSync(path.join(componentDir, 'index.tsx'))
+      ? path.join(componentDir, 'index.tsx')
+      : fs.existsSync(path.join(componentDir, 'index.ts'))
+        ? path.join(componentDir, 'index.ts')
+        : null;
+    if (indexFile) {
+      return this.success({
+        exists: true,
+        layout: 'directory-index',
+        path: componentDir,
+        files: fs.readdirSync(componentDir),
+        message: `Component ${name} exists (index-based layout at ${componentDir})`,
+      });
+    }
+
     return this.success({
-      exists,
+      exists: false,
+      layout: null,
       path: componentDir,
-      files: exists ? fs.readdirSync(componentDir) : [],
-      message: exists ? `Component ${name} already exists` : `Component ${name} does not exist`,
+      files: [],
+      message: `Component ${name} does not exist at ${resolved}`,
     });
   }
 

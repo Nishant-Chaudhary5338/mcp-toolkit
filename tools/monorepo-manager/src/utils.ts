@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { safeReadJson } from '@mcp-showcase/shared';
 import type { PackageInfo, WorkspaceInfo } from './types.js';
 
 export function findMonorepoRoot(startDir: string): string {
@@ -42,11 +43,10 @@ export function expandGlob(pattern: string, root: string): string[] {
     if (fs.existsSync(parentDir)) {
       const entries = fs.readdirSync(parentDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const pkgPath = path.join(parentDir, entry.name);
-          if (fs.existsSync(path.join(pkgPath, 'package.json'))) {
-            results.push(pkgPath);
-          }
+        if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+        const pkgPath = path.join(parentDir, entry.name);
+        if (fs.existsSync(path.join(pkgPath, 'package.json'))) {
+          results.push(pkgPath);
         }
       }
     }
@@ -64,7 +64,8 @@ export function getPackageInfo(pkgPath: string): PackageInfo | null {
   const pkgJsonPath = path.join(pkgPath, 'package.json');
   if (!fs.existsSync(pkgJsonPath)) return null;
 
-  const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8')) as Record<string, unknown>;
+  const pkg = safeReadJson<Record<string, unknown>>(pkgJsonPath);
+  if (!pkg) return null;
 
   let type: PackageInfo['type'] = 'package';
   if (pkgPath.includes('/apps/')) type = 'app';
@@ -91,7 +92,7 @@ export function getPackageInfo(pkgPath: string): PackageInfo | null {
 }
 
 export function getWorkspaceInfo(root: string): WorkspaceInfo {
-  const rootPkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8')) as Record<string, unknown>;
+  const rootPkg = safeReadJson<Record<string, unknown>>(path.join(root, 'package.json')) ?? {};
   const workspacePatterns = readWorkspaceConfig(root);
   const packages: PackageInfo[] = [];
 
@@ -108,8 +109,8 @@ export function getWorkspaceInfo(root: string): WorkspaceInfo {
   if (fs.existsSync(turboJson)) {
     const turboPkg = path.join(root, 'node_modules/turbo/package.json');
     if (fs.existsSync(turboPkg)) {
-      const turboPkgJson = JSON.parse(fs.readFileSync(turboPkg, 'utf-8')) as Record<string, unknown>;
-      turboVersion = turboPkgJson.version as string;
+      const turboPkgJson = safeReadJson<Record<string, unknown>>(turboPkg);
+      turboVersion = turboPkgJson?.version as string | undefined;
     }
   }
 

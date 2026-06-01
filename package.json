@@ -1,8 +1,8 @@
 {
   "name": "mcp-react-toolkit",
-  "version": "1.0.1",
+  "version": "1.2.0",
   "mcpName": "io.github.Nishant-Chaudhary5338/mcp-react-toolkit",
-  "description": "9 MCP servers for React + TypeScript development automation — component scaffolding, dep auditing, WCAG checking, test generation, TypeScript enforcement, and monorepo management.",
+  "description": "17 MCP servers for React + TypeScript development automation — component scaffolding, dep auditing, WCAG checking, test generation, TypeScript enforcement, render analysis, performance audit, Lighthouse, Storybook generation, legacy app analysis, component review/fix, and monorepo management.",
   "keywords": ["mcp", "mcp-server", "model-context-protocol", "react", "typescript", "developer-tools", "claude", "ai-tools"],
   "author": "Nishant Chaudhary <nishantchaudhary.dev@gmail.com>",
   "license": "MIT",
@@ -24,13 +24,21 @@
     "tools/generate-tests",
     "tools/typescript-enforcer",
     "tools/monorepo-manager",
+    "tools/render-analyzer",
+    "tools/storybook-generator",
+    "tools/performance-audit",
+    "tools/lighthouse-runner",
+    "tools/test-gap-analyzer",
+    "tools/component-reviewer",
+    "tools/component-fixer",
+    "tools/legacy-analyzer",
     "server",
     "client"
   ],
   "scripts": {
-    "build": "npm run build -w tools/shared && npm run build -w tools/json-viewer && npm run build -w tools/component-factory && npm run build -w tools/code-modernizer && npm run build -w tools/quality-pipeline && npm run build -w tools/dep-auditor && npm run build -w tools/accessibility-checker && npm run build -w tools/generate-tests && npm run build -w tools/typescript-enforcer && npm run build -w tools/monorepo-manager && npm run build -w server",
+    "build": "npm run build -w tools/shared && npm run build -w tools/json-viewer && npm run build -w tools/component-factory && npm run build -w tools/code-modernizer && npm run build -w tools/quality-pipeline && npm run build -w tools/dep-auditor && npm run build -w tools/accessibility-checker && npm run build -w tools/generate-tests && npm run build -w tools/typescript-enforcer && npm run build -w tools/monorepo-manager && npm run build -w tools/render-analyzer && npm run build -w tools/storybook-generator && npm run build -w tools/performance-audit && npm run build -w tools/lighthouse-runner && npm run build -w tools/test-gap-analyzer && npm run build -w tools/component-reviewer && npm run build -w tools/component-fixer && npm run build -w tools/legacy-analyzer && npm run build -w server",
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
-    "test": "npm run test -w tools/json-viewer && npm run test -w tools/quality-pipeline && npm run test -w tools/component-factory && npm run test -w tools/code-modernizer && npm run test -w tools/dep-auditor && npm run test -w tools/accessibility-checker && npm run test -w tools/generate-tests && npm run test -w tools/typescript-enforcer && npm run test -w tools/monorepo-manager",
+    "test": "npm run test -w tools/json-viewer && npm run test -w tools/quality-pipeline && npm run test -w tools/component-factory && npm run test -w tools/code-modernizer && npm run test -w tools/dep-auditor && npm run test -w tools/accessibility-checker && npm run test -w tools/generate-tests && npm run test -w tools/typescript-enforcer && npm run test -w tools/monorepo-manager && npm run test -w tools/render-analyzer && npm run test -w tools/storybook-generator && npm run test -w tools/performance-audit && npm run test -w tools/lighthouse-runner && npm run test -w tools/test-gap-analyzer && npm run test -w tools/component-reviewer && npm run test -w tools/component-fixer && npm run test -w tools/legacy-analyzer",
     "install:all": "npm install"
   },
   "devDependencies": {

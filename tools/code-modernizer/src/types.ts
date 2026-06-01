@@ -38,6 +38,7 @@ export interface ConvertedFile {
   newPath: string;
   addedTypes: string[];
   issues: string[];
+  previewContent?: string;
 }
 
 export interface ConvertToTypeScriptOutput {
