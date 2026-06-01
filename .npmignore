@@ -1,10 +1,12 @@
 client/
 server/
 demo-legacy-app/
+mcp-publisher
 tools/*/src/
 tools/*/node_modules/
 node_modules/
 .github/
+INTEGRATION_TEST_REPORT.md
 *.test.ts
 *.test.js
 tsconfig*.json
