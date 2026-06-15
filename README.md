@@ -2,10 +2,42 @@
 
 MCP servers for React + TypeScript development automation. Works with Claude Desktop, Cline, Cursor — and as plain CLI scripts — one protocol, zero duplication.
 
+[![npm](https://img.shields.io/npm/v/mcp-react-toolkit?color=cb3837&logo=npm)](https://www.npmjs.com/package/mcp-react-toolkit)
 [![CI](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP SDK](https://img.shields.io/badge/MCP%20SDK-1.12.0-blue)](https://github.com/modelcontextprotocol/typescript-sdk)
 [![Tests](https://img.shields.io/badge/tests-450%20passing-brightgreen)](#testing)
+
+---
+
+## Install
+
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 17 servers straight from npm:
+
+```bash
+npx mcp-react-toolkit --list            # list all 17 tools
+npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
+```
+
+### Add to Claude Desktop / Cursor / Cline
+
+```jsonc
+// claude_desktop_config.json
+{
+  "mcpServers": {
+    "legacy-analyzer": {
+      "command": "npx",
+      "args": ["-y", "mcp-react-toolkit", "legacy-analyzer"]
+    },
+    "component-factory": {
+      "command": "npx",
+      "args": ["-y", "mcp-react-toolkit", "component-factory"]
+    }
+  }
+}
+```
+
+Swap in any tool name from `npx mcp-react-toolkit --list`. Restart your client and the tools appear.
 
 ---
 
@@ -15,6 +47,18 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 tools/      17 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
+```
+
+---
+
+## Companion package
+
+[`@mcp-toolkit/code-indexer`](https://www.npmjs.com/package/@mcp-toolkit/code-indexer) — a standalone code-intelligence engine that indexes any TS/React repo into a queryable **code graph** (files · components · functions, and the `imports`/`renders`/`calls`/`references` edges between them) and answers structural questions — *who renders this, who calls this, find references, blast radius, cycles* — over a CLI, an HTTP/WS server with a live 3D viewer, and an MCP server. Separate package, same family:
+
+```bash
+npx @mcp-toolkit/code-indexer mcp           # stdio MCP server (8 tools)
+npx @mcp-toolkit/code-indexer index .       # one-shot index → .code-graph/graph.json
+npx @mcp-toolkit/code-indexer query who-renders --id "cmp:src/Button.tsx#Button"
 ```
 
 ---
@@ -131,7 +175,9 @@ new MyTool().run();
 
 ---
 
-## Run locally
+## Run from source (contributors)
+
+Prefer npm for everyday use (see [Install](#install)). Clone only to hack on the tools or run the showcase UI:
 
 ```sh
 git clone https://github.com/Nishant-Chaudhary5338/mcp-toolkit.git
@@ -142,7 +188,7 @@ npm test          # 450 tests across all 17 tools
 npm run dev       # server on :3002, client on :5173
 ```
 
-### Add to Claude Desktop
+### Point Claude Desktop at a local build
 
 ```jsonc
 // ~/Library/Application Support/Claude/claude_desktop_config.json

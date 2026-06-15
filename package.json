@@ -1,6 +1,6 @@
 {
   "name": "mcp-react-toolkit",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "mcpName": "io.github.Nishant-Chaudhary5338/mcp-react-toolkit",
   "description": "17 MCP servers for React + TypeScript development automation — component scaffolding, dep auditing, WCAG checking, test generation, TypeScript enforcement, render analysis, performance audit, Lighthouse, Storybook generation, legacy app analysis, component review/fix, and monorepo management.",
   "keywords": ["mcp", "mcp-server", "model-context-protocol", "react", "typescript", "developer-tools", "claude", "ai-tools"],
@@ -13,6 +13,18 @@
   "publishConfig": {
     "access": "public"
   },
+  "bin": {
+    "mcp-react-toolkit": "bin/cli.mjs"
+  },
+  "files": [
+    "bin/**",
+    "tools/*/build/**",
+    "tools/*/templates/**",
+    "tools/*/package.json",
+    "README.md",
+    "HOW_IT_WORKS.md",
+    "LICENSE"
+  ],
   "workspaces": [
     "tools/shared",
     "tools/json-viewer",
@@ -41,6 +53,16 @@
     "test": "npm run test -w tools/json-viewer && npm run test -w tools/quality-pipeline && npm run test -w tools/component-factory && npm run test -w tools/code-modernizer && npm run test -w tools/dep-auditor && npm run test -w tools/accessibility-checker && npm run test -w tools/generate-tests && npm run test -w tools/typescript-enforcer && npm run test -w tools/monorepo-manager && npm run test -w tools/render-analyzer && npm run test -w tools/storybook-generator && npm run test -w tools/performance-audit && npm run test -w tools/lighthouse-runner && npm run test -w tools/test-gap-analyzer && npm run test -w tools/component-reviewer && npm run test -w tools/component-fixer && npm run test -w tools/legacy-analyzer",
     "install:all": "npm install"
   },
+  "dependencies": {
+    "@mcp-showcase/shared": "1.0.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "fs-extra": "^11.2.0",
+    "glob": "^10.3.10"
+  },
+  "bundleDependencies": [
+    "@mcp-showcase/shared"
+  ],
   "devDependencies": {
     "concurrently": "^8.2.2"
   }
