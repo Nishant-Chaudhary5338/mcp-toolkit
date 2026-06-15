@@ -21,6 +21,10 @@
     "tools/*/build/**",
     "tools/*/templates/**",
     "tools/*/package.json",
+    "!tools/**/*.test.js",
+    "!tools/**/*.test.d.ts",
+    "!tools/**/*.test.js.map",
+    "!tools/**/*.test.d.ts.map",
     "README.md",
     "HOW_IT_WORKS.md",
     "LICENSE"
