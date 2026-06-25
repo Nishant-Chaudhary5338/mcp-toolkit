@@ -53,12 +53,12 @@ client/     React 19 showcase SPA — tool catalog, workflow demos, animated flo
 
 ## Companion package
 
-[`@mcp-toolkit/code-indexer`](https://www.npmjs.com/package/@mcp-toolkit/code-indexer) — a standalone code-intelligence engine that indexes any TS/React repo into a queryable **code graph** (files · components · functions, and the `imports`/`renders`/`calls`/`references` edges between them) and answers structural questions — *who renders this, who calls this, find references, blast radius, cycles* — over a CLI, an HTTP/WS server with a live 3D viewer, and an MCP server. Separate package, same family:
+[`code-graph-indexer`](https://www.npmjs.com/package/code-graph-indexer) — a standalone code-intelligence engine that indexes any TS / React / Next.js repo into a queryable **code graph** (files · components · functions, and the `imports`/`renders`/`calls`/`references`/`depends-on` edges between them) and answers structural questions — *who renders this, who calls this, find references, blast radius, cycles, dead code* — plus **semantic search** by meaning. Use it over a CLI, an MCP server, an HTTP/WS server, and a 3D web explorer. Separate package, same family:
 
 ```bash
-npx @mcp-toolkit/code-indexer mcp           # stdio MCP server (8 tools)
-npx @mcp-toolkit/code-indexer index .       # one-shot index → .code-graph/graph.json
-npx @mcp-toolkit/code-indexer query who-renders --id "cmp:src/Button.tsx#Button"
+npx code-graph-indexer mcp                       # stdio MCP server (13 tools)
+npx code-graph-indexer index --root .            # one-shot index → .code-graph/graph.json
+npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root .
 ```
 
 ---
