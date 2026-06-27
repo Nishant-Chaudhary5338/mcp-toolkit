@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadJson, isNextJsProject } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
+import { renderResultHTML } from '@mcp-showcase/ui-kit';
+import { toResultReport } from './result-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -313,13 +315,17 @@ class ComponentFactoryServer extends McpServerBase {
       fs.writeFileSync(indexPath, generateIndexCode(name));
       files.push(indexPath);
 
-      return this.success({
+      const result = {
         componentName: name,
         outputDirectory: componentDir,
         source: 'shadcn/ui template',
         filesGenerated: files.length,
         files,
         message: `Successfully generated ${name} component with ${files.length} files`,
+      };
+      return this.successWithUI(result as unknown as Record<string, unknown>, {
+        uri: 'ui://component-factory/report',
+        html: renderResultHTML(toResultReport(result, new Date().toISOString().slice(0, 10))),
       });
     } catch (error) {
       return this.error(error);

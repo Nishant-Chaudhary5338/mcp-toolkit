@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadJson, safeReadFile } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -350,9 +352,13 @@ class DepAuditorServer extends McpServerBase {
           };
         });
 
-        return this.success({
+        const result = {
           summary: `Analyzed ${packages.length} packages for bundle impact`,
           packages: analysis,
+        };
+        return this.successWithUI(result as unknown as Record<string, unknown>, {
+          uri: 'ui://dep-auditor/report',
+          html: renderReportHTML(toHealthReport(result, new Date().toISOString().slice(0, 10))),
         });
       }
     );

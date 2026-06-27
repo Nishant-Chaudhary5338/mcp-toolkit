@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { McpServerBase } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
 import * as fs from 'fs';
 import * as path from 'path';
 import { scanFile, scanDirectory } from './scanner.js';
 import type { RuleName, Severity, ScanOptions } from './types.js';
+import { toHealthReport } from './health-report.js';
 
 const VALID_RULES: RuleName[] = [
   'no-any',
@@ -108,7 +110,10 @@ class TypeScriptEnforcerServer extends McpServerBase {
             ...scanDirectory(resolved, options),
             metadata: { timestamp: new Date().toISOString(), duration: Date.now() - startTime, version: '2.0.0' },
           };
-          return this.success(result);
+          return this.successWithUI(result as unknown as Record<string, unknown>, {
+            uri: 'ui://typescript-enforcer/report',
+            html: renderReportHTML(toHealthReport(result, new Date().toISOString().slice(0, 10))),
+          });
         } catch (error) {
           return this.error(error);
         }

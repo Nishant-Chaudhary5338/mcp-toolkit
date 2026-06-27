@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadFile, isServerComponent, NEXTJS_ROUTE_FILES } from '@mcp-showcase/shared';
+import { renderResultHTML } from '@mcp-showcase/ui-kit';
 import * as fs from 'fs';
 import * as path from 'path';
 import { analyzeSource } from './analyzer.js';
 import { generateComponentTests, generateFunctionTests, generateHookTests, generateClassTests } from './generators.js';
+import { toResultReport, type GenerateTestsResult } from './result-report.js';
 
 function scanDirectory(dir: string, exts: string[] = ['.ts', '.tsx', '.js', '.jsx']): string[] {
   const files: string[] = [];
@@ -111,15 +113,20 @@ class GenerateTestsServer extends McpServerBase {
 
           fs.writeFileSync(dest, testContent, 'utf-8');
 
-          return this.success({
+          const successResult: GenerateTestsResult = {
             message: `Generated ${testSections.length} test suite(s)`,
             dest,
+            testContent,
             analysis: {
               components: analysis.components.map(c => c.name),
               hooks: analysis.hooks.map(h => h.name),
               functions: analysis.functions.map(f => f.name),
               classes: analysis.classes.map(c => c.name),
             },
+          };
+          return this.successWithUI(successResult as unknown as Record<string, unknown>, {
+            uri: 'ui://generate-tests/report',
+            html: renderResultHTML(toResultReport(successResult, new Date().toISOString().slice(0, 10))),
           });
         } catch (error) {
           return this.error(error);

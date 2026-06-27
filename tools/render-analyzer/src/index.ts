@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadFile } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -299,13 +301,17 @@ class RenderAnalyzerServer extends McpServerBase {
         }
       }
 
-      return this.success({
+      const result = {
         summary: {
           totalComponents: profiles.length,
           totalIssues,
           componentsWithIssues: profiles.filter(p => p.issues.length > 0).length,
         },
         profiles: profiles.filter(p => p.issues.length > 0),
+      };
+      return this.successWithUI(result as unknown as Record<string, unknown>, {
+        uri: 'ui://render-analyzer/report',
+        html: renderReportHTML(toHealthReport(result, new Date().toISOString().slice(0, 10))),
       });
     } catch (error) {
       return this.error(error);

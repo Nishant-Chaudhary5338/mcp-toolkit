@@ -1,0 +1,19 @@
+{
+  "name": "@mcp-showcase/ui-kit",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Reusable single-file HTML report UI for MCP tools — dependency-free, dual-theme, agentic. Flagship: Codebase Health Studio.",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "scripts": {
+    "build": "tsc && node build/generate-template.js",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

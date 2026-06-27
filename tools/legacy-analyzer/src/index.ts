@@ -23,7 +23,9 @@ import { suggestModuleSplitting } from './tools/19-suggest-module-splitting.js';
 import { namingStandardizer } from './tools/20-naming-standardizer.js';
 import { generateRefactorPlan } from './tools/21-generate-refactor-plan.js';
 import { refactorFolderStructure } from './tools/22-refactor-folder-structure.js';
-import type { AnalyzerConfig } from './types.js';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport } from './health-report.js';
+import type { AnalyzerConfig, AnalyzeLegacyAppOutput } from './types.js';
 
 // ============================================================================
 // TOOL DEFINITIONS
@@ -198,6 +200,7 @@ class LegacyAnalyzerServer extends McpServerBase {
   protected registerTools(): void {
     for (const tool of TOOLS) {
       const toolName = tool.name;
+      // TOOLS literals carry a nested config schema that won't narrow to ToolDefinition['inputSchema'].
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.addTool(
         toolName,
@@ -209,13 +212,24 @@ class LegacyAnalyzerServer extends McpServerBase {
   }
 
   private async dispatchTool(name: string, args: unknown): Promise<ToolResult> {
-    const { path: appPath, config } = args as { path: string; config?: Partial<AnalyzerConfig> };
+    const { path: appPath, config } = (args ?? {}) as { path?: string; config?: Partial<AnalyzerConfig> };
     const handler = HANDLERS[name];
     if (!handler) {
       return this.error(new Error(`Unknown tool: ${name}`));
     }
+    if (typeof appPath !== 'string' || appPath.length === 0) {
+      return this.error(new Error(`Tool "${name}" requires a non-empty "path" argument`));
+    }
     try {
       const result = await handler(appPath, config);
+      // The full app analysis also returns an interactive UI report (MCP Apps).
+      if (name === 'analyze-legacy-app') {
+        const report = toHealthReport(result as AnalyzeLegacyAppOutput);
+        return this.successWithUI(result as Record<string, unknown>, {
+          uri: 'ui://legacy-analyzer/report',
+          html: renderReportHTML(report),
+        });
+      }
       return this.success(result as Record<string, unknown>);
     } catch (error) {
       return this.error(error);

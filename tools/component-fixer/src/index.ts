@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { McpServerBase } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
+import { renderResultHTML } from '@mcp-showcase/ui-kit';
+import { toResultReport } from './result-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -723,12 +725,10 @@ class ComponentFixerServer extends McpServerBase {
 
       const result = fixFromReview(componentDir, componentName, reviewResult);
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        }],
-      };
+      return this.successWithUI(result as unknown as Record<string, unknown>, {
+        uri: 'ui://component-fixer/report',
+        html: renderResultHTML(toResultReport(result, new Date().toISOString().slice(0, 10))),
+      });
     } catch (error) {
       return {
         content: [{

@@ -10,6 +10,9 @@ import {
   ListToolsRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { ToolRegistry } from './ToolRegistry.js';
 import type { ServerConfig, ToolDefinition, ToolHandler, ToolResult } from './types.js';
 
@@ -77,6 +80,48 @@ export abstract class McpServerBase {
     return {
       content: [{ type: 'text', text: JSON.stringify({ success: true, ...data }, null, 2) }],
     };
+  }
+
+  /**
+   * Return machine-readable data (so the model can reason over it), an
+   * interactive UI resource (MCP Apps hosts render it inline in a sandboxed
+   * iframe), AND a clickable file:// link to the same dashboard written to a
+   * temp file — so clients without MCP-Apps rendering (e.g. Claude Code in
+   * VS Code) can still open the visual report in a browser.
+   */
+  protected successWithUI<T extends Record<string, unknown>>(
+    data: T,
+    ui: { uri: string; html: string }
+  ): ToolResult {
+    const content: ToolResult['content'] = [
+      { type: 'text', text: JSON.stringify({ success: true, ...data }, null, 2) },
+    ];
+    const fileUrl = this.writeReportFile(ui.uri, ui.html);
+    if (fileUrl) {
+      content.push({
+        type: 'text',
+        text:
+          `📊 Interactive dashboard: ${fileUrl}\n` +
+          `Open that link in a browser to explore the report (sortable issues, theme toggle, fix actions). ` +
+          `In Claude Desktop it renders inline automatically.`,
+      });
+    }
+    content.push({ type: 'resource', resource: { uri: ui.uri, mimeType: 'text/html', text: ui.html } });
+    return { content };
+  }
+
+  /** Write the dashboard HTML to a stable temp file; return its file:// URL (null on failure). */
+  private writeReportFile(uri: string, html: string): string | null {
+    try {
+      const slug = uri.replace(/^ui:\/\//, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'report';
+      const dir = join(tmpdir(), 'mcp-react-toolkit');
+      mkdirSync(dir, { recursive: true });
+      const filePath = join(dir, `${slug}.html`);
+      writeFileSync(filePath, html, 'utf8');
+      return `file://${filePath}`;
+    } catch {
+      return null;
+    }
   }
 
   protected error(error: unknown): ToolResult {

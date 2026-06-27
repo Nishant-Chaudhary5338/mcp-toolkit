@@ -72,14 +72,10 @@ export async function detectProjectTech(appPath: string, config?: Partial<Analyz
 
   // Detect CRA
   const hasReactScripts = !!allDeps['react-scripts'];
-  const hasCRAConfig = hasConfigFile(appPath, [
-    'config-overrides',
-    '.env',
-    '.env.local',
-    '.env.development',
-    '.env.production',
-  ]);
-  const isCRA = hasReactScripts || hasCRAConfig;
+  // Only react-scripts (or react-app-rewired's config-overrides) reliably signals CRA.
+  // NOT .env — Vite/Next/etc. use .env too, which previously caused false CRA detection.
+  const isCRA =
+    hasReactScripts || hasConfigFile(appPath, ['config-overrides.js', 'config-overrides.ts']);
 
   // Detect framework (order matters — check specific before generic)
   let framework = 'unknown';

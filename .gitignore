@@ -5,3 +5,5 @@ build
 .env.local
 *.tsbuildinfo
 client/dist
+tools/ui-kit/demo
+mcp-publisher

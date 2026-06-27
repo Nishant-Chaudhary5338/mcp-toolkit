@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadFile, safeReadJson } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -283,7 +285,7 @@ class PerformanceAuditServer extends McpServerBase {
         allIssues.push(...analyzeFile(file, content));
       }
 
-      return this.success({
+      const auditResult = {
         summary: {
           totalIssues: allIssues.length,
           high: allIssues.filter(i => i.severity === 'high').length,
@@ -298,6 +300,10 @@ class PerformanceAuditServer extends McpServerBase {
           },
         },
         issues: allIssues,
+      };
+      return this.successWithUI(auditResult as unknown as Record<string, unknown>, {
+        uri: 'ui://performance-audit/report',
+        html: renderReportHTML(toHealthReport(auditResult, new Date().toISOString().slice(0, 10))),
       });
     } catch (error) {
       return this.error(error);

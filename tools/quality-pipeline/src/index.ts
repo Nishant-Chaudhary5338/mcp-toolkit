@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadJson, safeReadFile } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport } from './health-report.js';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -613,7 +615,11 @@ class QualityPipelineServer extends McpServerBase {
     try {
       const totalStart = Date.now();
       const stages = this.buildStages(projectRoot, skipStages);
-      return this.success({ result: this.assembleResult(stages, totalStart) });
+      const result = this.assembleResult(stages, totalStart);
+      return this.successWithUI(result as unknown as Record<string, unknown>, {
+        uri: 'ui://quality-pipeline/report',
+        html: renderReportHTML(toHealthReport(result, new Date().toISOString().slice(0, 10))),
+      });
     } catch (error) {
       return this.error(error);
     }

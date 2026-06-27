@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadFile } from '@mcp-showcase/shared';
+import { renderResultHTML } from '@mcp-showcase/ui-kit';
+import { toResultReport } from './result-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -458,7 +460,13 @@ class StorybookGeneratorServer extends McpServerBase {
 
       const generated = results.filter((r: any) => !r.skipped).length;
       const skipped = results.filter((r: any) => r.skipped).length;
-      return this.success({ generated, skipped, results });
+      const payload = { generated, skipped, results };
+      // results is typed as unknown[] internally; cast is safe — runtime shape matches GenerateResult
+      const report = toResultReport(payload as unknown as import('./result-report.js').GenerateResult, new Date().toISOString().slice(0, 10));
+      return this.successWithUI(payload as unknown as Record<string, unknown>, {
+        uri: 'ui://storybook-generator/report',
+        html: renderResultHTML(report),
+      });
     } catch (error) {
       return this.error(error);
     }
