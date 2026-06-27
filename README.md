@@ -6,7 +6,7 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 [![CI](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Nishant-Chaudhary5338/mcp-toolkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP SDK](https://img.shields.io/badge/MCP%20SDK-1.12.0-blue)](https://github.com/modelcontextprotocol/typescript-sdk)
-[![Tests](https://img.shields.io/badge/tests-450%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#testing)
 
 ---
 
@@ -38,6 +38,27 @@ npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
 Swap in any tool name from `npx mcp-react-toolkit --list`. Restart your client and the tools appear.
+
+---
+
+## 🖥️ Interactive dashboards
+
+Most MCP tools return raw JSON. The tools here return that JSON **plus a premium, interactive HTML dashboard** — a 0–100 health score, sortable issue triage, light/dark toggle, and one-click *fix* actions that call other tools in the toolkit.
+
+It works three ways from a single self-contained artifact (no server, no external requests):
+
+| Where you run it | What you get |
+|---|---|
+| **Claude Desktop** (MCP Apps) | The dashboard renders **inline in the conversation** (sandboxed iframe); action buttons drive the agent. |
+| **Claude Code (VS Code) · Cursor · CLI** | The JSON **plus a clickable `file://` link** — open it to view the full dashboard in your browser. |
+| **Any browser** | The same HTML opens standalone — fully interactive. |
+
+Two dashboard styles:
+
+- **Audit view** — `legacy-analyzer`, `component-reviewer`, `accessibility-checker`, `dep-auditor`, `typescript-enforcer`, `performance-audit`, `render-analyzer`, `test-gap-analyzer`, `quality-pipeline`, `lighthouse-runner`. Health score, grade, category cards, filter/sort issue table.
+- **Result view** — `component-factory`, `component-fixer`, `code-modernizer`, `storybook-generator`, `generate-tests`, `monorepo-manager`. Files created/changed, diffs, and follow-up actions.
+
+**How it renders:** the tool returns an MCP `resource` with a `ui://` URI and `mimeType: text/html`. Hosts that support [MCP Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/) render it inline; for every other client the toolkit also writes the HTML to a temp file and returns a `file://` link so you can open it in a browser. Powered by the internal `@mcp-showcase/ui-kit` package — dependency-free, dual light/dark, ~30 KB per report.
 
 ---
 
@@ -184,7 +205,7 @@ git clone https://github.com/Nishant-Chaudhary5338/mcp-toolkit.git
 cd mcp-toolkit
 npm install
 npm run build
-npm test          # 450 tests across all 17 tools
+npm test          # run the full suite across all tools
 npm run dev       # server on :3002, client on :5173
 ```
 
@@ -326,33 +347,12 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node tools/legacy-analyz
 
 ## Testing
 
-Each tool has a dedicated test file covering its core logic directly — no MCP transport required.
+Every tool has a co-located Vitest suite covering its core logic directly — no MCP transport required — plus tests for the dashboard renderers and per-tool report mappers.
 
 ```sh
 npm test                                    # all tools
 npm run test -w tools/legacy-analyzer      # single tool
 ```
-
-| Tool | Tests |
-|---|---|
-| render-analyzer | 11 |
-| storybook-generator | 20 |
-| performance-audit | 15 |
-| lighthouse-runner | 13 |
-| test-gap-analyzer | 15 |
-| component-reviewer | 19 |
-| component-fixer | 10 |
-| legacy-analyzer | 14 |
-| json-viewer | 16 |
-| quality-pipeline | 8 |
-| component-factory | 6 |
-| code-modernizer | 8 |
-| dep-auditor | 15 |
-| accessibility-checker | 15 |
-| generate-tests | 14 |
-| typescript-enforcer | 22 |
-| monorepo-manager | 30 |
-| **Total** | **450** |
 
 CI runs on every push and PR against Node 20 and 22.
 

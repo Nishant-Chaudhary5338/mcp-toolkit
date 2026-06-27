@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadFile } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport, type CoverageResult } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -401,7 +403,7 @@ class TestGapAnalyzerServer extends McpServerBase {
       const overallCoverage = totalExports > 0 ? Math.round((testedExports / totalExports) * 100) : 100;
       const edgeCaseCoverage = totalEdgeCases > 0 ? Math.round((coveredEdgeCases / totalEdgeCases) * 100) : 100;
 
-      return this.success({
+      const result = {
         overall: {
           totalFiles: files.length,
           filesWithTests: (fileReports as any[]).filter(f => f.hasTests).length,
@@ -412,6 +414,10 @@ class TestGapAnalyzerServer extends McpServerBase {
           grade: overallCoverage >= 90 ? 'A' : overallCoverage >= 80 ? 'B' : overallCoverage >= 70 ? 'C' : overallCoverage >= 60 ? 'D' : 'F',
         },
         files: fileReports,
+      };
+      return this.successWithUI(result as unknown as Record<string, unknown>, {
+        uri: 'ui://test-gap-analyzer/report',
+        html: renderReportHTML(toHealthReport(result as unknown as CoverageResult, new Date().toISOString().slice(0, 10))),
       });
     } catch (error) {
       return this.error(error);

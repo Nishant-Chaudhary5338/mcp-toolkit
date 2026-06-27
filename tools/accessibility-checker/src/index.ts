@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadFile } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { analyzeFile, filterByImpact } from './rules.js';
@@ -67,7 +69,7 @@ class AccessibilityCheckerServer extends McpServerBase {
         try {
           const { files, issues } = readAndAnalyze(path.resolve(targetPath));
           const filtered = filterByImpact(issues, severity);
-          return this.success({
+          const result = {
             summary: {
               filesScanned: files.length,
               totalIssues: filtered.length,
@@ -77,6 +79,10 @@ class AccessibilityCheckerServer extends McpServerBase {
               minor: filtered.filter(i => i.impact === 'minor').length,
             },
             issues: filtered,
+          };
+          return this.successWithUI(result as unknown as Record<string, unknown>, {
+            uri: 'ui://accessibility-checker/report',
+            html: renderReportHTML(toHealthReport(result, new Date().toISOString().slice(0, 10))),
           });
         } catch (error) {
           return this.error(error);

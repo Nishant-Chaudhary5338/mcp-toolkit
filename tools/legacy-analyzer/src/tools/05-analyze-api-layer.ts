@@ -12,6 +12,26 @@ import type { AnalyzeApiOutput, AnalyzerConfig } from '../types.js';
 const API_CLIENTS = ['axios', 'node-fetch', 'got', 'superagent', 'ky', 'undici'] as const;
 const API_INDICATORS = ['fetch(', 'axios.', 'api.', '/api/', 'useSWR', 'useQuery', 'useMutation'];
 
+// Asset/media URLs are not API endpoints (images, fonts, static files, CDN links).
+const ASSET_URL_EXT = /\.(png|jpe?g|gif|svg|webp|avif|ico|bmp|mp4|webm|mov|mp3|wav|woff2?|ttf|otf|eot|css|pdf|zip)(\?|#|$)/i;
+const API_PATH_HINT = /(^\/api\/)|(\/api\/)|(\/v\d+\/)|(\/graphql)|(\/rest\/)|(\/rpc\/)/i;
+
+/** Only count a quoted string as an API endpoint if it actually looks like one. */
+function looksLikeApiEndpoint(raw: string): boolean {
+  if (ASSET_URL_EXT.test(raw)) return false;
+  if (raw.startsWith('/api/')) return true;
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const u = new URL(raw);
+      if (/^api\./i.test(u.hostname) || /\.api\./i.test(u.hostname)) return true;
+      return API_PATH_HINT.test(u.pathname);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 export async function analyzeApiLayer(appPath: string, config?: Partial<AnalyzerConfig>): Promise<AnalyzeApiOutput> {
   const srcPath = resolveSourceDir(appPath);
   const files = await findSourceFiles(srcPath);
@@ -68,13 +88,13 @@ export async function analyzeApiLayer(appPath: string, config?: Partial<Analyzer
       else scatteredFiles++;
     }
 
-    // Extract API endpoints (skip CDN, schema, and asset URLs)
-    const EXCLUDED_URL_PATTERNS = ['w3.org', 'schemas.', 'xmlns', 'cdn.', 'fonts.', 'cdnjs.', 'unpkg.', 'jsdelivr.', 'cloudflare.com/ajax', 'localhost', '127.0.0.1', '0.0.0.0'];
+    // Extract API endpoints — only strings that actually look like API calls
+    // (relative /api/ paths or api-ish URLs), never image/font/CDN/asset URLs.
     const endpointRegex = /['"`](\/api\/[^'"`\s]+|https?:\/\/[^'"`\s]+)['"`]/g;
     let endpointMatch;
     while ((endpointMatch = endpointRegex.exec(content)) !== null) {
       const endpoint = endpointMatch[1];
-      if (EXCLUDED_URL_PATTERNS.some((pat) => endpoint.includes(pat))) continue;
+      if (!looksLikeApiEndpoint(endpoint)) continue;
       if (!apiEndpoints.has(endpoint)) apiEndpoints.set(endpoint, []);
       apiEndpoints.get(endpoint)!.push(relPath);
     }

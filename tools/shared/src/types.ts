@@ -28,11 +28,23 @@ export interface ToolResult {
   [key: string]: unknown;
 }
 
+export interface EmbeddedResource {
+  /** Resource identifier. UI resources use the `ui://` scheme (MCP Apps / MCP-UI). */
+  uri: string;
+  mimeType?: string;
+  /** Inline text payload (e.g. self-contained HTML for a `text/html` UI resource). */
+  text?: string;
+  /** Base64 binary payload. */
+  blob?: string;
+}
+
 export interface ToolContent {
   type: 'text' | 'image' | 'resource';
   text?: string;
   data?: string;
   mimeType?: string;
+  /** Present when `type === 'resource'`. */
+  resource?: EmbeddedResource;
 }
 
 export interface ServerConfig {

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { McpServerBase } from '@mcp-showcase/shared';
+import { renderResultHTML } from '@mcp-showcase/ui-kit';
+import { toResultReport, type ListPackagesResult } from './result-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -33,7 +35,13 @@ class MonorepoManagerServer extends McpServerBase {
       },
       async (args) => {
         try {
-          return this.success(this.handleListPackages(args));
+          const result = this.handleListPackages(args);
+          // Cast is safe: handleListPackages shape matches ListPackagesResult structurally
+          const typedResult = result as unknown as ListPackagesResult;
+          return this.successWithUI(result as unknown as Record<string, unknown>, {
+            uri: 'ui://monorepo-manager/report',
+            html: renderResultHTML(toResultReport(typedResult, new Date().toISOString().slice(0, 10))),
+          });
         } catch (error) {
           return this.error(error);
         }

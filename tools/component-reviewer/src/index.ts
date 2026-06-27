@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { McpServerBase } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -1097,12 +1099,11 @@ class ComponentReviewerServer extends McpServerBase {
         testResults,
       };
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        }],
-      };
+      const report = toHealthReport(result, new Date().toISOString().slice(0, 10));
+      return this.successWithUI(result as unknown as Record<string, unknown>, {
+        uri: 'ui://component-reviewer/report',
+        html: renderReportHTML(report),
+      });
     } catch (error) {
       return {
         content: [{

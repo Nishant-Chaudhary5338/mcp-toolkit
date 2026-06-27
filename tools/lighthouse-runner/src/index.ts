@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { McpServerBase, safeReadJson } from '@mcp-showcase/shared';
+import { renderReportHTML } from '@mcp-showcase/ui-kit';
+import { toHealthReport } from './health-report.js';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -371,11 +373,19 @@ class LighthouseRunnerServer extends McpServerBase {
       const results = files.map(f => ({ file: f, ...analyzeHtmlFile(f) }));
       const avgScore = results.length > 0 ? results.reduce((a, r) => a + r.score, 0) / results.length : 100;
 
-      return this.success({
+      const staticResult = {
         filesAudited: results.length,
         averageScore: Math.round(avgScore),
         results,
-      });
+      };
+
+      return this.successWithUI(
+        staticResult as unknown as Record<string, unknown>,
+        {
+          uri: 'ui://lighthouse-runner/report',
+          html: renderReportHTML(toHealthReport(staticResult, new Date().toISOString().slice(0, 10))),
+        }
+      );
     } catch (error) {
       return this.error(error);
     }
