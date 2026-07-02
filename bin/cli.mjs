@@ -29,6 +29,7 @@ const TOOLS = [
   "form-generator",
   "table-generator",
   "detail-generator",
+  "crud-composer",
 ];
 
 const requested = process.argv[2];
