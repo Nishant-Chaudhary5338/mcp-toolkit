@@ -298,6 +298,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/mcp-tool-factory',
     example: '{ "spec": { "name": "my-tool", "description": "...", "actions": [{ "name": "do_thing", "description": "..." }] } }',
   },
+  {
+    id: 'mcp-tool-improviser',
+    name: 'mcp-tool-improviser',
+    category: 'Meta',
+    description: 'Analyze and improve MCP tools across 7 dimensions (description quality, schema completeness, error handling, edge cases, response structure, code quality, contextual depth). Proposes diffs, applies them, and supports rollback.',
+    actions: ['analyze_tool', 'batch_analyze', 'apply_improvements', 'rollback'],
+    serverPath: 'tools/mcp-tool-improviser',
+    example: '{ "path": "tools/component-factory/src/index.ts" }',
+  },
 ]
 
 export const categories: ToolCategory[] = [

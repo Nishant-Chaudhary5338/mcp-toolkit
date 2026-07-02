@@ -42,7 +42,7 @@ const requested = process.argv[2];
 if (!requested || requested === "--list" || requested === "-l" || requested === "list") {
   const lines = TOOLS.map((t) => `  • ${t}`).join("\n");
   process.stdout.write(
-    `mcp-react-toolkit — 29 MCP servers for React + TypeScript\n\n` +
+    `mcp-react-toolkit — 30 MCP servers for React + TypeScript\n\n` +
       `Usage:\n  npx mcp-react-toolkit <tool>\n\nAvailable tools:\n${lines}\n\n` +
       `Add one to Claude Desktop / Cursor:\n` +
       `  "legacy-analyzer": { "command": "npx", "args": ["-y", "mcp-react-toolkit", "legacy-analyzer"] }\n`,
@@ -52,7 +52,7 @@ if (!requested || requested === "--list" || requested === "-l" || requested === 
 
 if (!TOOLS.includes(requested)) {
   process.stderr.write(
-    `Unknown tool: "${requested}".\nRun \`npx mcp-react-toolkit --list\` to see all 29 tools.\n`,
+    `Unknown tool: "${requested}".\nRun \`npx mcp-react-toolkit --list\` to see all 30 tools.\n`,
   );
   process.exit(1);
 }
