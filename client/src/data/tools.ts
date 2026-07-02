@@ -278,6 +278,16 @@ export const tools: McpTool[] = [
     example: '{ "path": "src/features/article" }',
   },
 
+  {
+    id: 'enforce-design-tokens',
+    name: 'enforce-design-tokens',
+    category: 'Code Quality',
+    description: 'Scan React/TS/CSS for hardcoded design values (colors, spacing, font sizes, radii, shadows, z-index), suggest design-token replacements, and grade a path A–F on token compliance.',
+    actions: ['scan_tokens', 'suggest_tokens', 'enforce_tokens'],
+    serverPath: 'tools/enforce-design-tokens',
+    example: '{ "path": "src/components", "severity": "high" }',
+  },
+
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
     id: 'mcp-tool-factory',

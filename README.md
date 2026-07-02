@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 28 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 29 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 28 tools
+npx mcp-react-toolkit --list            # list all 29 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      28 MCP server packages — each independently buildable and runnable
+tools/      29 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 28 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 29 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -109,6 +109,7 @@ All 28 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | `render-analyzer` | Detect unnecessary re-renders, missing memo, inline objects/functions | 3 |
 | `performance-audit` | Memory leaks, heavy imports, unoptimized images, deep nesting | 3 |
 | `test-gap-analyzer` | Find unimplemented functions, uncovered branches, missing edge cases | 3 |
+| `enforce-design-tokens` | Flag hardcoded colors/spacing/radii/shadows, suggest tokens, grade A–F | 3 |
 | `legacy-analyzer` | 22-tool health audit for any React/Next.js/Remix app — scores 0–100, migration hints | 22 |
 
 ### Monorepo & Infrastructure
