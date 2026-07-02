@@ -58,9 +58,16 @@ function extractVariantValues(content: string, key: 'variant' | 'size'): string[
   const pattern = new RegExp(`${key}\\s*:\\s*\\{([^}]*)\\}`, 's');
   const m = content.match(pattern);
   if (!m) return [];
+  // Blank out the CONTENTS of string literals first, so Tailwind state prefixes
+  // inside class strings (hover:, focus:, disabled:) aren't captured as keys.
+  const body = m[1].replace(/(['"`])(?:\\.|(?!\1)[\s\S])*?\1/g, '""');
   const values: string[] = [];
-  for (const vm of m[1].matchAll(/['"`]?(\w+)['"`]?\s*:/g)) {
-    if (vm[1] !== key) values.push(vm[1]);
+  const seen = new Set<string>();
+  for (const vm of body.matchAll(/(\w+)\s*:/g)) {
+    if (vm[1] !== key && !seen.has(vm[1])) {
+      seen.add(vm[1]);
+      values.push(vm[1]);
+    }
   }
   return values.slice(0, 8); // cap at 8 to avoid explosion
 }
@@ -174,8 +181,10 @@ export function analyzeSource(content: string): SourceAnalysis {
     });
   }
 
-  // Classes
-  for (const m of content.matchAll(/(?:export\s+)?class\s+(\w+)/g)) {
+  // Classes — must be an actual `class Name {`/`extends`/`implements` declaration
+  // with a PascalCase name. Requiring the `{`/`extends` and a capital first letter
+  // stops phrases like "class names" inside a JSDoc comment being captured.
+  for (const m of content.matchAll(/(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Z]\w*)\s*(?:<[^>]*>)?\s*(?:extends\s+[\w.]+\s*(?:<[^>]*>)?\s*)?(?:implements\s+[^{]+)?\{/g)) {
     const body = content.slice(m.index ?? 0, (m.index ?? 0) + 1200);
     const methods: string[] = [];
     for (const mm of body.matchAll(/(?:public|private|protected|async\s+)?(\w+)\s*\(/g)) {
@@ -189,15 +198,49 @@ export function analyzeSource(content: string): SourceAnalysis {
   return { isReactFile, components, functions, hooks, classes };
 }
 
-export function mockValue(paramName: string): string {
-  const n = paramName.toLowerCase().replace(/[:?].*$/, '').trim();
+/**
+ * Produce a plausible argument for a parameter. Prefers the declared TYPE
+ * (so we never pass `undefined`/`null` to a `string`/`number` param — which
+ * both fails strict typecheck and throws at runtime on `.trim()`/`.length`),
+ * falling back to the parameter name only when the type is unknown.
+ */
+export function mockValue(param: string): string {
+  const colon = param.indexOf(':');
+  const namePart = (colon >= 0 ? param.slice(0, colon) : param).replace(/[?].*$/, '').replace(/\s*=(?!>).*$/, '').replace(/^\.\.\./, '').trim();
+  // strip a default value (`= x`) but keep arrow `=>` in function types
+  const type = (colon >= 0 ? param.slice(colon + 1) : '').replace(/\s*=(?!>).*$/, '').trim();
+  const t = type.toLowerCase();
+
+  if (t) {
+    if (/^(readonly)?\s*[\w.]+\[\]$/.test(t) || /^(array|readonlyarray)</.test(t)) return '[]';
+    if (t.includes('=>')) return 'vi.fn()';
+    if (t.includes('|')) {
+      // union: prefer a concrete literal member
+      const first = t.split('|').map(s => s.trim()).find(s => s && s !== 'null' && s !== 'undefined');
+      if (first) {
+        if (/^\d+$/.test(first)) return first;
+        if (/^'|^"/.test(first)) return first.replace(/'/g, '"');
+        if (first === 'true' || first === 'false') return first;
+        if (first === 'string') return '"test"';
+        if (first === 'number') return '0';
+        if (first === 'boolean') return 'false';
+      }
+    }
+    if (/^string$/.test(t)) return '"test"';
+    if (/^number$/.test(t)) return '0';
+    if (/^boolean$/.test(t)) return 'false';
+    if (/^{|^record<|^object$/.test(t)) return '{}';
+  }
+
+  const n = namePart.toLowerCase();
   if (/count|num|size|index|limit|min|max|step|rows|cols/.test(n)) return '0';
   if (/str|name|label|title|id|key|text|placeholder|description|message/.test(n)) return '"test"';
   if (/bool|flag|enabled|visible|show|disabled|active|open|loading|checked/.test(n)) return 'false';
-  if (/callback|handler|fn|on[A-Z]/.test(n)) return 'vi.fn()';
+  if (/callback|handler|fn|on[A-Z]/.test(namePart)) return 'vi.fn()';
   if (/items|list|array/.test(n)) return '[]';
   if (/obj|config|options|props/.test(n)) return '{}';
   if (/ref/.test(n)) return '{ current: null }';
   if (/children/.test(n)) return '"children"';
-  return 'undefined';
+  // Unknown type: a string is the least likely to throw on common operations.
+  return '"test"';
 }

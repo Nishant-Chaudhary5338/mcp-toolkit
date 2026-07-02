@@ -86,7 +86,15 @@ describe('mockValue', () => {
     expect(mockValue('items')).toBe('[]');
   });
 
-  it('returns undefined as fallback', () => {
-    expect(mockValue('something')).toBe('undefined');
+  it('falls back to a string literal for unknown params (never undefined, which throws on typed sigs)', () => {
+    expect(mockValue('something')).toBe('"test"');
+  });
+
+  it('prefers the declared type over the name (no undefined for typed params)', () => {
+    expect(mockValue('x: string')).toBe('"test"');
+    expect(mockValue('n: number')).toBe('0');
+    expect(mockValue('flag: boolean')).toBe('false');
+    expect(mockValue('cb: () => void')).toBe('vi.fn()');
+    expect(mockValue('rows: string[]')).toBe('[]');
   });
 });

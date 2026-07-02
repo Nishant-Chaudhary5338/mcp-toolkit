@@ -5,7 +5,7 @@ import { mockValue } from './analyzer.js';
 // COMPONENT TESTS
 // ============================================================================
 
-export function generateComponentTests(info: ComponentInfo): string {
+export function generateComponentTests(info: ComponentInfo, importPath: string): string {
   const { name, isVoidElement, hasVariants, hasSizes, variantValues, sizeValues, propTypes, hasChildren } = info;
 
   const primaryRender = isVoidElement
@@ -26,10 +26,14 @@ export function generateComponentTests(info: ComponentInfo): string {
     (p.type.includes('string') || p.name === 'label' || p.name === 'title' || p.name === 'placeholder')
   );
 
+  const classNameRender = isVoidElement
+    ? `<${name} className="x-custom" data-testid="subject" placeholder="test-input" />`
+    : `<${name} className="x-custom" data-testid="subject">Test Content</${name}>`;
+
   let t = `import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ${name} } from './${name}'
+import { ${name} } from '${importPath}'
 
 describe('${name}', () => {
   // -----------------------------------------------------------------------
@@ -41,7 +45,7 @@ describe('${name}', () => {
   })
 
   it('accepts and applies className', () => {
-    render(<${name} className="x-custom"${isVoidElement ? ' data-testid="subject" placeholder="test-input"' : ` data-testid="subject">Test Content</${name}`}${isVoidElement ? ' />' : ''})
+    render(${classNameRender})
     expect(${primaryGet}).toHaveClass('x-custom')
   })
 
@@ -257,15 +261,14 @@ describe('${name}', () => {
 // FUNCTION TESTS
 // ============================================================================
 
-export function generateFunctionTests(info: FunctionInfo): string {
+export function generateFunctionTests(info: FunctionInfo, importPath: string): string {
   const { name, params, isAsync, returnType } = info;
   const args = params.map(p => mockValue(p)).join(', ');
-  const nullArgs = params.map(() => 'null').join(', ');
   const call = `${name}(${args})`;
   const isPromise = isAsync || returnType?.includes('Promise');
 
-  let t = `import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ${name} } from './${name}'
+  let t = `import { describe, it, expect, vi } from 'vitest'
+import { ${name} } from '${importPath}'
 
 describe('${name}', () => {
   it('is defined and is a function', () => {
@@ -292,14 +295,6 @@ describe('${name}', () => {
 `;
   }
 
-  if (params.length > 0) {
-    t += `
-  it('handles missing/null arguments gracefully', ${isPromise ? 'async ' : ''}() => {
-    expect(${isPromise ? 'async ' : ''}() => ${isPromise ? 'await ' : ''}${name}(${nullArgs})).not.toThrow()
-  })
-`;
-  }
-
   if (params.length === 0) {
     t += `
   it('can be called with no arguments', ${isPromise ? 'async ' : ''}() => {
@@ -317,13 +312,13 @@ describe('${name}', () => {
 // HOOK TESTS
 // ============================================================================
 
-export function generateHookTests(info: HookInfo): string {
+export function generateHookTests(info: HookInfo, importPath: string): string {
   const { name, params, returnsObject, returnsArray } = info;
   const args = params.map(p => mockValue(p)).join(', ');
 
-  let t = `import { describe, it, expect, act } from 'vitest'
+  let t = `import { describe, it, expect } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { ${name} } from './${name}'
+import { ${name} } from '${importPath}'
 
 describe('${name}', () => {
   it('mounts without throwing', () => {
@@ -378,12 +373,12 @@ describe('${name}', () => {
 // CLASS TESTS
 // ============================================================================
 
-export function generateClassTests(info: ClassInfo): string {
+export function generateClassTests(info: ClassInfo, importPath: string): string {
   const { name, methods, hasConstructor } = info;
   const publicMethods = methods.filter(m => m !== 'constructor' && !m.startsWith('_') && !['render', 'componentDidMount', 'componentWillUnmount'].includes(m));
 
-  let t = `import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { ${name} } from './${name.toLowerCase()}'
+  let t = `import { describe, it, expect, beforeEach } from 'vitest'
+import { ${name} } from '${importPath}'
 
 describe('${name}', () => {
   let instance: ${name}
@@ -416,4 +411,55 @@ describe('${name}', () => {
   t += `})
 `;
   return t;
+}
+
+// ============================================================================
+// FILE ASSEMBLY
+// ============================================================================
+
+/**
+ * Combine per-symbol test suites into one file with a SINGLE, de-duplicated set
+ * of imports. Each generator emits its own `import` header; naively concatenating
+ * them produces duplicate `import … from 'vitest'`/source imports (a duplicate-
+ * identifier compile error). This merges named + default specifiers per module.
+ */
+export function assembleTestFile(sections: string[]): string {
+  const importRe = /^\s*import\s+(?:(\w+)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s+['"]([^'"]+)['"]\s*;?\s*$/;
+  const defaults = new Map<string, string>();
+  const named = new Map<string, Set<string>>();
+  const order: string[] = [];
+  const bodies: string[] = [];
+
+  for (const section of sections) {
+    const bodyLines: string[] = [];
+    for (const line of section.split('\n')) {
+      const m = line.match(importRe);
+      if (m) {
+        const [, def, namedList, mod] = m;
+        if (!named.has(mod)) {
+          named.set(mod, new Set());
+          order.push(mod);
+        }
+        if (def) defaults.set(mod, def);
+        if (namedList) {
+          for (const s of namedList.split(',').map(x => x.trim()).filter(Boolean)) {
+            named.get(mod)!.add(s);
+          }
+        }
+      } else {
+        bodyLines.push(line);
+      }
+    }
+    bodies.push(bodyLines.join('\n').replace(/^\n+|\n+$/g, ''));
+  }
+
+  const importLines = order.map((mod) => {
+    const def = defaults.get(mod);
+    const names = [...named.get(mod)!];
+    const namedPart = names.length ? `{ ${names.join(', ')} }` : '';
+    const clause = [def, namedPart].filter(Boolean).join(', ');
+    return `import ${clause} from '${mod}'`;
+  });
+
+  return `${importLines.join('\n')}\n\n${bodies.join('\n\n')}\n`;
 }
