@@ -147,8 +147,8 @@ export function analyzeFile(filePath: string, content: string): PerformanceIssue
       }
     }
 
-    // Deeply nested ternaries
-    const ternaryCount = (line.match(/\?/g) || []).length;
+    // Deeply nested ternaries (ignore optional chaining `?.` and nullish coalescing `??`)
+    const ternaryCount = (line.replace(/\?\./g, '').replace(/\?\?/g, '').match(/\?/g) || []).length;
     if (ternaryCount >= 3) {
       issues.push({
         type: 'deep-nesting',

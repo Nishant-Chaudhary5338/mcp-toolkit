@@ -118,6 +118,26 @@ describe('analyzeFile — deep nesting', () => {
     const issues = analyzeFile('Component.tsx', code);
     expect(issues.some(i => i.type === 'deep-nesting')).toBe(false);
   });
+
+  it('does not count optional chaining (?.) as a ternary', () => {
+    const code = `const items = data?.items ?? [];`;
+    const issues = analyzeFile('Component.tsx', code);
+    expect(issues.some(i => i.type === 'deep-nesting')).toBe(false);
+  });
+
+  it('does not count nullish coalescing (??) combined with optional chaining as a ternary', () => {
+    const code = `const filtered = (data?.items ?? []).filter((item) => item.active);`;
+    const issues = analyzeFile('Component.tsx', code);
+    expect(issues.some(i => i.type === 'deep-nesting')).toBe(false);
+  });
+
+  it('still flags a genuine triple ternary alongside optional chaining', () => {
+    const code = `const x = a ? b ? c : d : e ? f : g; const y = data?.items ?? [];`;
+    const issues = analyzeFile('utils.ts', code);
+    const issue = issues.find(i => i.type === 'deep-nesting');
+    expect(issue).toBeDefined();
+    expect(issue?.description).toContain('3 nested ternary');
+  });
 });
 
 // ---------------------------------------------------------------------------
