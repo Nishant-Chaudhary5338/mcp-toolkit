@@ -288,6 +288,16 @@ export const tools: McpTool[] = [
     example: '{ "path": "src/components", "severity": "high" }',
   },
 
+  {
+    id: 'fix-failing-tests',
+    name: 'fix-failing-tests',
+    category: 'Testing',
+    description: 'Run the suite (auto-detects Vitest/Jest), classify each failure by root cause (import, type, assertion, timeout, runtime), and generate targeted fix code.',
+    actions: ['run_tests', 'analyze_failures', 'auto_fix'],
+    serverPath: 'tools/fix-failing-tests',
+    example: '{ "projectRoot": "/path/to/project" }',
+  },
+
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
     id: 'mcp-tool-factory',
