@@ -86,6 +86,17 @@ export async function convertToTypeScript(
     return true;
   });
 
+  if (jsFiles.length === 0 && (await fs.pathExists(path.join(projectPath, 'tsconfig.json')))) {
+    return {
+      success: true,
+      convertedFiles: [],
+      skippedFiles: [],
+      errors: [],
+      summary: { totalFiles: 0, convertedCount: 0, skippedCount: 0, errorCount: 0 },
+      message: 'Project is already TypeScript — no .js/.jsx source files found to convert.',
+    };
+  }
+
   for (const filePath of jsFiles) {
     try {
       const relativePath = path.relative(projectPath, filePath);

@@ -52,6 +52,8 @@ export interface ConvertToTypeScriptOutput {
     skippedCount: number;
     errorCount: number;
   };
+  /** Set when the run was a no-op for a reason worth surfacing, e.g. "already TypeScript". */
+  message?: string;
 }
 
 export interface BackupMetadata {
