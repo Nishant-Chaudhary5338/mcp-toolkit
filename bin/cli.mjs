@@ -32,6 +32,7 @@ const TOOLS = [
   "crud-composer",
   "mcp-tool-factory",
   "review-gate",
+  "workflow-runner",
 ];
 
 const requested = process.argv[2];

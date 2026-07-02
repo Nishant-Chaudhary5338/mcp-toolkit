@@ -1,0 +1,29 @@
+{
+  "name": "@mcp-showcase/workflow-runner",
+  "version": "1.0.0",
+  "description": "Run named CRUD-factory routines end-to-end in-process — compose infer-fields → zod-schema → api-client → table/detail/form → crud-composer, gated by review-gate, returning the generated files, a run journal, and the grade.",
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mcp-showcase/shared": "*",
+    "@mcp-showcase/infer-fields": "*",
+    "@mcp-showcase/zod-schema-generator": "*",
+    "@mcp-showcase/api-client-generator": "*",
+    "@mcp-showcase/table-generator": "*",
+    "@mcp-showcase/detail-generator": "*",
+    "@mcp-showcase/form-generator": "*",
+    "@mcp-showcase/crud-composer": "*",
+    "@mcp-showcase/review-gate": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}
