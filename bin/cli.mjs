@@ -37,6 +37,7 @@ const TOOLS = [
   "refactor-executor",
   "docs-generator",
   "e2e-generator",
+  "playwright-scaffolder",
   "review-gate",
   "workflow-runner",
   "msw-mock-generator",
@@ -48,7 +49,7 @@ const requested = process.argv[2];
 if (!requested || requested === "--list" || requested === "-l" || requested === "list") {
   const lines = TOOLS.map((t) => `  • ${t}`).join("\n");
   process.stdout.write(
-    `mcp-react-toolkit — 35 MCP servers for React + TypeScript\n\n` +
+    `mcp-react-toolkit — 36 MCP servers for React + TypeScript\n\n` +
       `Usage:\n  npx mcp-react-toolkit <tool>\n\nAvailable tools:\n${lines}\n\n` +
       `Add one to Claude Desktop / Cursor:\n` +
       `  "legacy-analyzer": { "command": "npx", "args": ["-y", "mcp-react-toolkit", "legacy-analyzer"] }\n`,
@@ -58,7 +59,7 @@ if (!requested || requested === "--list" || requested === "-l" || requested === 
 
 if (!TOOLS.includes(requested)) {
   process.stderr.write(
-    `Unknown tool: "${requested}".\nRun \`npx mcp-react-toolkit --list\` to see all 35 tools.\n`,
+    `Unknown tool: "${requested}".\nRun \`npx mcp-react-toolkit --list\` to see all 36 tools.\n`,
   );
   process.exit(1);
 }

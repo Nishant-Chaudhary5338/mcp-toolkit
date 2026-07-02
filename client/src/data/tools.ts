@@ -318,6 +318,15 @@ export const tools: McpTool[] = [
     example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles" } }',
   },
   {
+    id: 'playwright-scaffolder',
+    name: 'playwright-scaffolder',
+    category: 'Testing',
+    description: 'Scaffold a Playwright test harness for a React/Vite app — config, POM fixture, base Page Object, and optional auth storage-state setup.',
+    actions: ['generate_scaffold'],
+    serverPath: 'tools/playwright-scaffolder',
+    example: '{ "baseUrl": "http://localhost:5173", "includeAuth": true }',
+  },
+  {
     id: 'fix-failing-tests',
     name: 'fix-failing-tests',
     category: 'Testing',
