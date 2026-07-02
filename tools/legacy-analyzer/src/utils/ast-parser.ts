@@ -4,7 +4,14 @@
 // ============================================================================
 
 import * as path from 'path';
+import { createRequire } from 'module';
 import { readFileContent } from './file-scanner.js';
+
+// This file is compiled to ESM ("type":"module"), where the bare `require`
+// global does not exist. Without createRequire, getParser() threw on the first
+// call and every parseFile() silently returned null — the entire AST engine
+// (jsxMaxDepth, hook counts, import-based detection) was dead.
+const nodeRequire = createRequire(import.meta.url);
 import type {
   ParsedFile,
   ImportInfo,
@@ -20,7 +27,7 @@ let parser: any = null;
 
 function getParser() {
   if (!parser) {
-    parser = require('@typescript-eslint/parser');
+    parser = nodeRequire('@typescript-eslint/parser');
   }
   return parser;
 }

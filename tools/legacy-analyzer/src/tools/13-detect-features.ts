@@ -4,6 +4,7 @@
 // folder grouping, and import clustering
 // ============================================================================
 
+import * as fs from 'fs';
 import * as path from 'path';
 import { findSourceFiles, readFileContent, resolveSourceDir } from '../utils/file-scanner.js';
 import { buildImportGraph, resolveImportPath } from '../utils/import-tracker.js';
@@ -23,6 +24,14 @@ export async function detectFeatures(
 
   if (files.length === 0) {
     return { features: [], featureMap: {} };
+  }
+
+  // If the app already organizes code into an explicit features/modules/domains
+  // directory, that IS the real feature list — report it as-is instead of
+  // inventing keyword-based buckets.
+  const existingFeatureRoot = detectExistingFeatureDir(srcPath);
+  if (existingFeatureRoot) {
+    return buildFeatureOutputFromDir(existingFeatureRoot, srcPath, files);
   }
 
   // Phase 1: Detect features from file paths
@@ -162,4 +171,37 @@ export async function detectFeatures(
     features,
     featureMap,
   };
+}
+
+const FEATURE_DIR_NAMES = ['features', 'modules', 'domains'];
+
+/** Find an existing features/modules/domains directory directly under the source root. */
+function detectExistingFeatureDir(srcPath: string): string | null {
+  for (const name of FEATURE_DIR_NAMES) {
+    const dir = path.join(srcPath, name);
+    if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+      return dir;
+    }
+  }
+  return null;
+}
+
+/** Report the real subfolders of an existing feature directory as the app's features. */
+function buildFeatureOutputFromDir(featureRoot: string, srcPath: string, files: string[]): DetectFeaturesOutput {
+  const subfolders = fs
+    .readdirSync(featureRoot, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort();
+
+  const featureMap: Record<string, string[]> = {};
+  for (const feature of subfolders) {
+    const featurePrefix = path.join(path.relative(srcPath, featureRoot), feature) + path.sep;
+    featureMap[feature] = files
+      .map((f) => path.relative(srcPath, f))
+      .filter((relPath) => relPath.startsWith(featurePrefix))
+      .sort();
+  }
+
+  return { features: subfolders, featureMap };
 }
