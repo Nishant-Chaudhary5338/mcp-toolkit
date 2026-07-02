@@ -118,7 +118,7 @@ function indexShell(spec: ToolSpec): string {
       ${inputSchema},
       async (args) => {
         try {
-          return this.success(${fn}(args));
+          return this.success({ ...${fn}(args) });
         } catch (err) {
           return this.error(err);
         }

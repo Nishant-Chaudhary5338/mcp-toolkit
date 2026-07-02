@@ -43,6 +43,8 @@ describe('scaffold', () => {
     expect(index.content).toContain('this.addTool(');
     expect(index.content).toContain('"do_thing"');
     expect(index.content).toContain("import { doThing } from './core.js'");
+    // spread so a core fn returning a named interface satisfies success<Record<string, unknown>>
+    expect(index.content).toContain('this.success({ ...doThing(args) })');
     expect(core.content).toContain('export function doThing(args: unknown)');
   });
 
