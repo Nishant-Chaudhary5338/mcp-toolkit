@@ -181,6 +181,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/json-viewer',
     example: '{ "data": { "key": "value" }, "label": "API response" }',
   },
+  {
+    id: 'infer-fields',
+    name: 'infer-fields',
+    category: 'Utilities',
+    description: 'Infer a typed FieldSchema (fields, types, foreign-key relations, and table/form presentation defaults) from a JSON API sample or an OpenAPI schema. The data contract every CRUD/form/table generator consumes.',
+    actions: ['infer_fields'],
+    serverPath: 'tools/infer-fields',
+    example: '{ "input": "{\\"id\\":1,\\"title\\":\\"Hi\\",\\"authorId\\":5}", "baseEndpoint": "/api/articles" }',
+  },
 ]
 
 export const categories: ToolCategory[] = [
