@@ -28,6 +28,7 @@ const TOOLS = [
   "api-client-generator",
   "form-generator",
   "table-generator",
+  "detail-generator",
 ];
 
 const requested = process.argv[2];

@@ -1,0 +1,21 @@
+{
+  "name": "@mcp-showcase/detail-generator",
+  "version": "1.0.0",
+  "description": "Generate a typed detail/view component from a FieldSchema, wired to the generated get and delete hooks (RTK Query or TanStack Query).",
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mcp-showcase/shared": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}
