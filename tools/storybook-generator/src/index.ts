@@ -28,6 +28,8 @@ interface ComponentInfo {
   hasChildren: boolean;
   hasDisabled: boolean;
   hasLoading: boolean;
+  /** the actual loading prop name on the component (`loading` vs `isLoading`) */
+  loadingProp: string | null;
   callbacks: string[];
 }
 
@@ -84,9 +86,16 @@ export function extractVariantValues(content: string, key: 'variant' | 'size'): 
   const cvaPattern = new RegExp(`${key}\\s*:\\s*\\{([^}]*)\\}`, 's');
   const cvaMatch = content.match(cvaPattern);
   if (cvaMatch) {
+    // Blank out string-literal CONTENTS first so Tailwind state prefixes inside
+    // class strings (hover:, focus:, disabled:) aren't captured as variant keys.
+    const body = cvaMatch[1].replace(/(['"`])(?:\\.|(?!\1)[\s\S])*?\1/g, '""');
     const values: string[] = [];
-    for (const vm of cvaMatch[1].matchAll(/['"`]?(\w+)['"`]?\s*:/g)) {
-      if (vm[1] !== key) values.push(vm[1]);
+    const seen = new Set<string>();
+    for (const vm of body.matchAll(/(\w+)\s*:/g)) {
+      if (vm[1] !== key && !seen.has(vm[1])) {
+        seen.add(vm[1]);
+        values.push(vm[1]);
+      }
     }
     if (values.length > 0) return values.slice(0, 8);
   }
@@ -124,14 +133,15 @@ function analyzeComponent(content: string, filePath: string): ComponentInfo | nu
   const isInteractive = INTERACTIVE_NAMES.some(i => name.toLowerCase().includes(i));
   const hasChildren = props.some(p => p.name === 'children') || (content.includes('children') && !isVoidElement);
   const hasDisabled = props.some(p => p.name === 'disabled') || content.includes('disabled');
-  const hasLoading = props.some(p => p.name === 'loading' || p.name === 'isLoading');
+  const loadingProp = props.find(p => p.name === 'loading' || p.name === 'isLoading')?.name ?? null;
+  const hasLoading = loadingProp !== null;
   const callbacks = props.filter(p => /^on[A-Z]/.test(p.name)).map(p => p.name).slice(0, 5);
 
   return {
     name, file: filePath, props, hasVariants, hasSizes,
     variantValues: variantValues.length > 0 ? variantValues : (hasVariants ? ['default', 'destructive', 'outline', 'secondary', 'ghost'] : []),
     sizeValues: sizeValues.length > 0 ? sizeValues : (hasSizes ? ['sm', 'default', 'lg'] : []),
-    isVoidElement, isInteractive, hasChildren, hasDisabled, hasLoading, callbacks,
+    isVoidElement, isInteractive, hasChildren, hasDisabled, hasLoading, loadingProp, callbacks,
   };
 }
 
@@ -234,7 +244,7 @@ export function getMockValue(propName: string, propType: string, componentName: 
 // ============================================================================
 
 function generateStory(info: ComponentInfo): string {
-  const { name, props, hasVariants, hasSizes, isVoidElement, isInteractive, hasChildren, hasDisabled, hasLoading, callbacks, variantValues, sizeValues } = info;
+  const { name, props, hasVariants, hasSizes, isVoidElement, isInteractive, hasChildren, hasDisabled, hasLoading, loadingProp, callbacks, variantValues, sizeValues } = info;
 
   const renderContent = isVoidElement ? `placeholder="${name} text"` : (hasChildren ? `>{...}</${name}>` : '');
   const defaultChild = hasChildren && !isVoidElement ? `\n  args: {\n    children: '${name} content',\n  },` : '';
@@ -327,8 +337,8 @@ function generateStory(info: ComponentInfo): string {
   }
 
   // ── Loading state ──────────────────────────────────────────────────────────
-  if (hasLoading) {
-    out += `\n// ----- Loading state -----\nexport const Loading: Story = {\n  args: {\n    loading: true,`;
+  if (hasLoading && loadingProp) {
+    out += `\n// ----- Loading state -----\nexport const Loading: Story = {\n  args: {\n    ${loadingProp}: true,`;
     if (hasChildren && !isVoidElement) out += `\n    children: 'Loading...',`;
     out += `\n  },\n};\n`;
   }
