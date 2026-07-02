@@ -8,7 +8,11 @@ let tmpFiles: string[] = [];
 let tmpDirs: string[] = [];
 
 function writeTmp(name: string, content: string): string {
-  const p = path.join(os.tmpdir(), `ts-enforcer-test-${Date.now()}-${name}`);
+  // Unique dir per file: Date.now() alone collides when vitest runs the compiled
+  // build/*.test.js and src/*.test.ts copies concurrently against the same tmpdir.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-enforcer-file-'));
+  tmpDirs.push(dir);
+  const p = path.join(dir, name);
   fs.writeFileSync(p, content, 'utf-8');
   tmpFiles.push(p);
   return p;
@@ -113,5 +117,56 @@ describe('scanDirectory', () => {
     if (result.totalViolations > 0) {
       expect(result.byRule['no-any']).toBeGreaterThan(0);
     }
+  });
+
+  it('merges a custom ignore with the built-in defaults instead of replacing them', () => {
+    const dir = makeTmpDir();
+    const nm = path.join(dir, 'node_modules');
+    fs.mkdirSync(nm);
+    fs.writeFileSync(path.join(nm, 'lib.ts'), 'const x: any = 1;');
+    const skip = path.join(dir, 'skip-me');
+    fs.mkdirSync(skip);
+    fs.writeFileSync(path.join(skip, 'a.ts'), 'const y = 1;');
+    fs.writeFileSync(path.join(dir, 'main.ts'), 'const z = 1;');
+
+    const result = scanDirectory(dir, { rules: ['no-any'], ignore: ['skip-me'] });
+    expect(result.filesScanned).toBe(1);
+  });
+
+  it('matches ignore patterns against the relative path, including simple globs', () => {
+    const dir = makeTmpDir();
+    const nested = path.join(dir, 'features', 'contacts', 'model');
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(path.join(nested, 'filters.ts'), 'const x = 1;');
+    fs.writeFileSync(path.join(dir, 'App.ts'), 'const y = 1;');
+
+    const result = scanDirectory(dir, { rules: ['no-any'], ignore: ['**/contacts/**'] });
+    expect(result.filesScanned).toBe(1);
+  });
+});
+
+describe('scanFile — modifiers rule as-const false positives', () => {
+  it('does not suggest as const on a multiline array that already has it', () => {
+    const file = writeTmp(
+      'sort-options.ts',
+      "export const SORT_OPTIONS = [\n  { value: 'a', label: 'A' },\n  { value: 'b', label: 'B' },\n] as const;\n"
+    );
+    const result = scanFile(file, { rules: ['modifiers'] });
+    expect(result.violations.some(v => v.suggestion.includes('as const'))).toBe(false);
+  });
+
+  it('does not suggest as const on a return object with an explicit return type', () => {
+    const file = writeTmp(
+      'decode.ts',
+      "interface Filters { search: string; }\nexport function decode(): Partial<Filters> {\n  return {\n    search: '',\n  };\n}\n"
+    );
+    const result = scanFile(file, { rules: ['modifiers'] });
+    expect(result.violations.some(v => v.current === 'return { ... }')).toBe(false);
+  });
+
+  it('still suggests as const on a multiline array without it', () => {
+    const file = writeTmp('colors.ts', "export const COLORS = [\n  'red',\n  'blue',\n];\n");
+    const result = scanFile(file, { rules: ['modifiers'] });
+    expect(result.violations.some(v => v.suggestion.includes('as const'))).toBe(true);
   });
 });
