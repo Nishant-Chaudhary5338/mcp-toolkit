@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 39 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 40 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 39 tools
+npx mcp-react-toolkit --list            # list all 40 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      39 MCP server packages — each independently buildable and runnable
+tools/      40 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 39 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 40 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -150,6 +150,7 @@ One JSON API sample (or OpenAPI schema) fans out into a full, typed CRUD feature
 | Tool | What it does | MCP tools exposed |
 |---|---|---|
 | `barrel-generator` | Generate an index.ts barrel re-exporting a folder — no more drifting export lists | 1 |
+| `type-from-json` | JSON sample → plain TS interfaces (nested objects → their own interfaces) | 1 |
 
 ### Meta
 

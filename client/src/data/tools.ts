@@ -365,6 +365,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/barrel-generator',
     example: '{ "path": "src/components", "named": true }',
   },
+  {
+    id: 'type-from-json',
+    name: 'type-from-json',
+    category: 'Boilerplate',
+    description: 'Generate plain TypeScript interfaces from a JSON sample — nested objects become their own interfaces, arrays become T[]. The general-purpose sibling of infer-fields.',
+    actions: ['generate_types'],
+    serverPath: 'tools/type-from-json',
+    example: '{ "input": "{\\"id\\":1,\\"author\\":{\\"name\\":\\"A\\"}}", "rootName": "Article" }',
+  },
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
