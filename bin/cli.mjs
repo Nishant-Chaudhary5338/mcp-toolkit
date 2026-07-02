@@ -27,6 +27,7 @@ const TOOLS = [
   "zod-schema-generator",
   "api-client-generator",
   "form-generator",
+  "table-generator",
 ];
 
 const requested = process.argv[2];
