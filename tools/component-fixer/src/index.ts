@@ -8,9 +8,39 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const nodeRequire = createRequire(import.meta.url);
+
+/**
+ * Verify that `content` still parses as TS/TSX. Used as a safety net: if applying
+ * fixes produced code that no longer parses, we roll the file back rather than
+ * writing corruption and lying about success. Falls back to a bracket-balance
+ * check if the parser can't be resolved.
+ */
+function parsesCleanly(content: string, filePath: string): boolean {
+  try {
+    const parser = nodeRequire('@typescript-eslint/parser');
+    parser.parse(content, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      ecmaFeatures: { jsx: filePath.endsWith('.tsx') || filePath.endsWith('.jsx') },
+    });
+    return true;
+  } catch (e) {
+    // If the error is specifically a parser-resolution problem, fall back to a
+    // cheap structural check so we still catch gross corruption.
+    const msg = (e as Error).message ?? '';
+    if (/Cannot find module|@typescript-eslint\/parser/.test(msg)) {
+      const balanced = (open: string, close: string) =>
+        (content.split(open).length === content.split(close).length);
+      return balanced('{', '}') && balanced('(', ')') && balanced('[', ']');
+    }
+    return false;
+  }
+}
 
 // ============================================================================
 // TYPES (mirrors component-reviewer types)
@@ -73,6 +103,8 @@ interface FixResult {
   line?: number;
   message: string;
   applied: boolean;
+  /** true when the engine deliberately did NOT edit the file and only advises */
+  suggestion?: boolean;
   detail: string;
 }
 
@@ -176,6 +208,17 @@ class FixEngine {
 
   getResult(): string {
     return this.lines.join('\n');
+  }
+
+  /** Flip every applied fix to failed — used when a post-fix parse check fails and we roll back. */
+  markAllAppliedAsFailed(reason: string): void {
+    this.modified = false;
+    for (const f of this.fixes) {
+      if (f.applied) {
+        f.applied = false;
+        f.detail = `${reason} (${f.detail})`;
+      }
+    }
   }
 
   applyFix(issue: ReviewIssue): void {
@@ -480,81 +523,54 @@ class FixEngine {
   private applyRefactor(issue: ReviewIssue): void {
     const lineIdx = issue.line ? issue.line - 1 : -1;
 
+    // These refactors (extracting an inline handler / style object into a named
+    // declaration, or replacing innerHTML with declarative JSX) require hoisting
+    // a new binding into the right scope. Line-based splicing CANNOT do that
+    // safely — the previous implementation rewrote to an undefined `handleClick`
+    // /`styles` and injected `//` comments into JSX position, turning a valid
+    // file into one that no longer parses while still reporting success. We now
+    // surface them as actionable suggestions instead of corrupting the file.
     if (issue.category === 'performance' && issue.message.includes('Inline arrow function')) {
-      if (lineIdx >= 0 && lineIdx < this.lines.length) {
-        const line = this.lines[lineIdx];
-        const handlerMatch = line.match(/(onClick|onChange|onSubmit|onFocus|onBlur)=\{([^}]+=>[^}]+)\}/);
-        if (handlerMatch) {
-          const eventName = handlerMatch[1];
-          const handlerBody = handlerMatch[2];
-          const handlerName = `handle${eventName.charAt(2).toUpperCase() + eventName.slice(3)}`;
-
-          this.lines[lineIdx] = line.replace(
-            new RegExp(`${eventName}=\\{[^}]+=>[^}]+\\}`),
-            `${eventName}={${handlerName}}`
-          );
-
-          this.lines.splice(lineIdx, 0, `// TODO: Extract ${handlerName} = ${handlerBody} as a named function or useCallback`);
-          this.modified = true;
-          this.fixes.push({
-            issueId: issue.id,
-            category: issue.category,
-            line: issue.line,
-            message: issue.message,
-            applied: true,
-            detail: `Replaced inline ${eventName} handler with reference at line ${issue.line}`,
-          });
-          return;
-        }
-      }
+      const line = lineIdx >= 0 && lineIdx < this.lines.length ? this.lines[lineIdx] : '';
+      const handlerMatch = line.match(/(onClick|onChange|onSubmit|onFocus|onBlur)=\{([^}]+=>[^}]+)\}/);
+      const eventName = handlerMatch?.[1] ?? 'the handler';
+      const handlerName = handlerMatch ? `handle${handlerMatch[1].charAt(2).toUpperCase() + handlerMatch[1].slice(3)}` : 'handler';
+      this.pushSuggestion(
+        issue,
+        `Hoist the inline ${eventName} into a stable \`${handlerName}\` via useCallback (or a module-level function) and pass it by reference. Left unchanged to avoid an unsafe edit.`,
+      );
+      return;
     }
 
     if (issue.category === 'performance' && issue.message.includes('Inline object literal')) {
-      if (lineIdx >= 0 && lineIdx < this.lines.length) {
-        const line = this.lines[lineIdx];
-        const styleMatch = line.match(/style=\{\{([^}]+)\}\}/);
-        if (styleMatch) {
-          this.lines[lineIdx] = line.replace(
-            /style=\{\{[^}]+\}\}/,
-            'style={styles} // TODO: Extract to constant or useMemo'
-          );
-          this.modified = true;
-          this.fixes.push({
-            issueId: issue.id,
-            category: issue.category,
-            line: issue.line,
-            message: issue.message,
-            applied: true,
-            detail: `Replaced inline style object with reference at line ${issue.line}`,
-          });
-          return;
-        }
-      }
+      this.pushSuggestion(
+        issue,
+        'Extract the inline object/style into a useMemo or module-level constant and reference it. Left unchanged to avoid an unsafe edit.',
+      );
+      return;
     }
 
     if (issue.category === 'security' && issue.message.includes('innerHTML')) {
-      if (lineIdx >= 0 && lineIdx < this.lines.length) {
-        this.lines[lineIdx] = this.lines[lineIdx] + ' // TODO: Replace innerHTML with React declarative rendering';
-        this.modified = true;
-        this.fixes.push({
-          issueId: issue.id,
-          category: issue.category,
-          line: issue.line,
-          message: issue.message,
-          applied: true,
-          detail: `Added TODO comment for innerHTML usage at line ${issue.line}`,
-        });
-        return;
-      }
+      this.pushSuggestion(
+        issue,
+        'Replace innerHTML/dangerouslySetInnerHTML with declarative JSX, or sanitize the HTML before rendering. Left unchanged to avoid an unsafe edit.',
+      );
+      return;
     }
 
+    this.pushSuggestion(issue, 'This refactor needs manual judgment; no automatic edit was applied.');
+  }
+
+  /** Record a non-destructive suggestion (no file mutation). */
+  private pushSuggestion(issue: ReviewIssue, detail: string): void {
     this.fixes.push({
       issueId: issue.id,
       category: issue.category,
       line: issue.line,
       message: issue.message,
       applied: false,
-      detail: 'Refactor fix not implemented for this issue type',
+      suggestion: true,
+      detail,
     });
   }
 }
@@ -596,25 +612,39 @@ function fixFromReview(componentDir: string, componentName: string, reviewResult
 
   const engine = new FixEngine(content, componentFile);
 
-  for (const issue of fixableIssues) {
+  // Apply bottom-up: line-splicing fixes (remove/insert) shift the line numbers
+  // of everything below them, so processing highest-line-first keeps every other
+  // issue's stored line index valid.
+  const ordered = [...fixableIssues].sort((a, b) => (b.line ?? 0) - (a.line ?? 0));
+  for (const issue of ordered) {
     engine.applyFix(issue);
   }
 
+  // Safety net: never write code that no longer parses. If our edits corrupted
+  // the file, roll back and report honestly instead of a false success.
+  let writeError: string | null = null;
   if (engine.hasModifications()) {
-    writeFileContent(componentFile, engine.getResult());
+    const result = engine.getResult();
+    if (parsesCleanly(result, componentFile)) {
+      writeFileContent(componentFile, result);
+    } else {
+      writeError = 'Applied fixes would not parse; rolled back — file left unchanged.';
+      engine.markAllAppliedAsFailed(writeError);
+    }
   }
 
   const tsResult = runTypeScriptCheck(componentDir);
 
   const fixes = engine.getFixes();
   const applied = fixes.filter(f => f.applied).length;
-  const skipped = fixes.filter(f => !f.applied && !f.detail.includes('Error')).length;
-  const failed = fixes.filter(f => !f.applied && f.detail.includes('Error')).length;
+  const failed = fixes.filter(f => !f.applied && f.detail.includes('parse')).length
+    + fixes.filter(f => !f.applied && f.detail.includes('Error')).length;
+  const skipped = fixes.filter(f => !f.applied).length - failed;
 
   const remainingIssues = reviewResult.issues.filter(i => !i.fixable);
 
   return {
-    success: true,
+    success: writeError === null,
     component: componentName,
     file: path.relative(process.cwd(), componentFile),
     summary: {

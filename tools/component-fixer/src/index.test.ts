@@ -99,3 +99,29 @@ describe('component structure', () => {
     expect(lineCount).toBeGreaterThan(300);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression guard: the "refactor" fixes must NOT emit undefined references or
+// inject // comments into JSX (which corrupted files while reporting success).
+// ---------------------------------------------------------------------------
+describe('no destructive refactors', () => {
+  const src = fs.readFileSync(path.resolve('src/index.ts'), 'utf-8');
+
+  it('never writes an undefined handleClick/style={styles} reference', () => {
+    expect(src).not.toMatch(/=\{\$\{handlerName\}\}/);
+    expect(src).not.toContain('style={styles} // TODO');
+  });
+
+  it('does not splice raw // TODO lines into the component body', () => {
+    expect(src).not.toMatch(/splice\([^)]*`\/\/ TODO: Extract/);
+  });
+
+  it('validates the result parses before writing (rollback safety net)', () => {
+    expect(src).toContain('parsesCleanly');
+    expect(src).toContain('markAllAppliedAsFailed');
+  });
+
+  it('applies fixes bottom-up so line splices do not shift other issues', () => {
+    expect(src).toMatch(/sort\(\(a, b\) => \(b\.line \?\? 0\) - \(a\.line \?\? 0\)\)/);
+  });
+});
