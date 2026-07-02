@@ -25,6 +25,7 @@ const TOOLS = [
   "json-viewer",
   "infer-fields",
   "zod-schema-generator",
+  "api-client-generator",
 ];
 
 const requested = process.argv[2];
