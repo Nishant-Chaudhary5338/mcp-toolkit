@@ -141,6 +141,7 @@ One JSON API sample (or OpenAPI schema) fans out into a full, typed CRUD feature
 | `workflow-runner` | Run `schema_to_feature` end-to-end, gated by `review-gate` — returns files + journal + A–F grade | 1 |
 | `e2e-generator` | `FieldSchema` → Playwright CRUD flow spec (create→edit→delete + a11y) | 1 |
 | `playwright-scaffolder` | Scaffold the Playwright harness — config, fixtures, base POM, auth setup | 1 |
+| `visual-regression-setup` | Playwright toHaveScreenshot specs for routes/stories — catch CSS drift | 1 |
 | `review-gate` | Static A–F quality gate for generated/changed code (a11y, tokens, smells, stubs) | 1 |
 
 ### Meta
