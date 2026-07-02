@@ -6,31 +6,9 @@
 // detail generator consumes. See docs/CRUD_AUTOMATION_PLAN.md §3.
 // ============================================================================
 
-export type FieldType =
-  | 'text' | 'email' | 'password' | 'number' | 'boolean'
-  | 'date' | 'textarea' | 'select' | 'relation';
+import type { FieldType, Field, FieldSchema } from '@mcp-showcase/shared';
 
-export interface Field {
-  name: string;
-  label: string;
-  type: FieldType;
-  required: boolean;
-  /** Present when type === 'select'. */
-  enumValues?: string[];
-  /** Present when type === 'relation' (foreign key or nested object). */
-  relation?: { resource: string; labelKey: string };
-  /** How this field should appear in a generated data table. */
-  table: { show: boolean; sortable: boolean; filterable: boolean };
-  /** How this field should appear in a generated form. */
-  form: { show: boolean; placeholder?: string };
-}
-
-export interface FieldSchema {
-  resource: string;
-  baseEndpoint: string;
-  idKey: string;
-  fields: Field[];
-}
+export type { FieldType, Field, FieldSchema } from '@mcp-showcase/shared';
 
 export interface InferInput {
   /** JSON sample response, array of records, or OpenAPI schema — as a JSON string or a value. */
