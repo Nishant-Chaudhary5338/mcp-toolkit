@@ -31,6 +31,7 @@ const TOOLS = [
   "detail-generator",
   "crud-composer",
   "mcp-tool-factory",
+  "review-gate",
 ];
 
 const requested = process.argv[2];
