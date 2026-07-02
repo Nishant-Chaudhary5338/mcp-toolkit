@@ -309,6 +309,15 @@ export const tools: McpTool[] = [
   },
 
   {
+    id: 'e2e-generator',
+    name: 'e2e-generator',
+    category: 'Testing',
+    description: 'Generate a Playwright end-to-end CRUD flow spec (create -> list -> read -> edit -> delete + a11y) from a FieldSchema. Tests the feature the CRUD factory generates, closing the factory -> feature -> mock -> E2E loop.',
+    actions: ['generate_e2e'],
+    serverPath: 'tools/e2e-generator',
+    example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles" } }',
+  },
+  {
     id: 'fix-failing-tests',
     name: 'fix-failing-tests',
     category: 'Testing',
