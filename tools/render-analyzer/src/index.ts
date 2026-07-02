@@ -53,32 +53,59 @@ function scanDirectory(dir: string): string[] {
   return files;
 }
 
-export function extractComponents(content: string): string[] {
+// Data consts (SORT_OPTIONS, DEFAULT_FILTERS) are ALL-CAPS/SCREAMING_SNAKE and are never React
+// components even though they match the `[A-Z]\w+` shape; skip them here.
+function isScreamingSnakeCase(name: string): boolean {
+  return name === name.toUpperCase();
+}
+
+export function extractComponents(content: string, filePath?: string): string[] {
+  // Component detection only makes sense for JSX-capable files.
+  if (filePath && !/\.(tsx|jsx)$/.test(filePath)) return [];
+
   const components: string[] = [];
   const fnRegex = /(?:export\s+(?:default\s+)?)?(?:const|function)\s+([A-Z]\w+)/g;
   let match;
   while ((match = fnRegex.exec(content)) !== null) {
-    if (!components.includes(match[1])) components.push(match[1]);
+    const name = match[1];
+    if (isScreamingSnakeCase(name)) continue;
+    if (!components.includes(name)) components.push(name);
   }
   return components;
 }
 
-export function analyzeComponent(content: string, componentName: string, filePath: string): ComponentRenderProfile {
-  const hasMemo = content.includes(`memo(${componentName})`) || content.includes('React.memo');
-  const hasUseMemo = content.includes('useMemo');
-  const hasUseCallback = content.includes('useCallback');
+// Locates the `const Name` / `function Name` declaration itself (not just any occurrence of the
+// name, which can collide with a longer identifier like `NameProps`).
+function findDeclarationStart(content: string, componentName: string): number {
+  const re = new RegExp(`\\b(?:const|function)\\s+${componentName}\\b`);
+  const match = re.exec(content);
+  return match ? match.index : content.indexOf(componentName);
+}
 
+export function analyzeComponent(content: string, componentName: string, filePath: string): ComponentRenderProfile {
   let inlineObjects = 0;
   let inlineFunctions = 0;
   let propsCount = 0;
   const issues: RenderIssue[] = [];
 
-  const compStart = content.indexOf(componentName);
+  const compStart = findDeclarationStart(content, componentName);
   if (compStart === -1) {
-    return { name: componentName, file: filePath, hasMemo, hasUseMemo, hasUseCallback, propsCount, inlineObjects, inlineFunctions, issues };
+    return { name: componentName, file: filePath, hasMemo: false, hasUseMemo: false, hasUseCallback: false, propsCount, inlineObjects, inlineFunctions, issues };
   }
 
-  const componentBody = content.slice(compStart);
+  // Bound this component's body to the start of the next detected component so issues (and
+  // memo/useMemo/useCallback detection) aren't attributed across component boundaries.
+  const otherStarts = extractComponents(content, filePath)
+    .filter(name => name !== componentName)
+    .map(name => findDeclarationStart(content, name))
+    .filter(idx => idx > compStart);
+  const compEnd = otherStarts.length > 0 ? Math.min(...otherStarts) : content.length;
+
+  const componentBody = content.slice(compStart, compEnd);
+  const hasMemo = componentBody.includes(`memo(${componentName})`) || componentBody.includes('React.memo');
+  const hasUseMemo = componentBody.includes('useMemo');
+  const hasUseCallback = componentBody.includes('useCallback');
+
   const bodyLines = componentBody.split('\n');
 
   for (let i = 0; i < bodyLines.length; i++) {
@@ -291,7 +318,7 @@ class RenderAnalyzerServer extends McpServerBase {
       for (const file of files) {
         const content = safeReadFile(file);
         if (content === null) continue;
-        const components = extractComponents(content);
+        const components = extractComponents(content, file);
         for (const comp of components) {
           const profile = analyzeComponent(content, comp, file);
           const filteredIssues = profile.issues.filter(i => severityOrder[i.severity] <= minSeverity);
@@ -333,7 +360,7 @@ class RenderAnalyzerServer extends McpServerBase {
       for (const file of files) {
         const content = safeReadFile(file);
         if (content === null) continue;
-        const components = extractComponents(content);
+        const components = extractComponents(content, file);
         for (const comp of components) {
           totalComponents++;
           const profile = analyzeComponent(content, comp, file);
@@ -378,7 +405,7 @@ class RenderAnalyzerServer extends McpServerBase {
       for (const file of files) {
         const content = safeReadFile(file);
         if (content === null) continue;
-        const components = extractComponents(content);
+        const components = extractComponents(content, file);
         for (const comp of components) {
           const profile = analyzeComponent(content, comp, file);
           if (profile.inlineObjects > 0 || profile.inlineFunctions > 0) {
