@@ -336,6 +336,15 @@ export const tools: McpTool[] = [
     example: '{ "routes": ["/", "/articles"] }',
   },
   {
+    id: 'test-data-factory',
+    name: 'test-data-factory',
+    category: 'Testing',
+    description: 'Generate a typed test-fixture factory (makeX/makeXs with overrides + seq reset) from a FieldSchema — deterministic mock data for unit tests, Storybook, and seeds.',
+    actions: ['generate_factory'],
+    serverPath: 'tools/test-data-factory',
+    example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles" } }',
+  },
+  {
     id: 'fix-failing-tests',
     name: 'fix-failing-tests',
     category: 'Testing',
