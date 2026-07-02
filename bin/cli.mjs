@@ -30,6 +30,7 @@ const TOOLS = [
   "table-generator",
   "detail-generator",
   "crud-composer",
+  "mcp-tool-factory",
 ];
 
 const requested = process.argv[2];
