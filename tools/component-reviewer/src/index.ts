@@ -167,7 +167,8 @@ export function analyzeTypeScript(content: string, lines: string[]): ReviewIssue
       });
     }
 
-    if (line.match(/\bas\s+[A-Z]/g) && !line.includes('as const')) {
+    const isImportOrExportAs = /^\s*(?:import|export)\b/.test(line) && /\bas\b/.test(line);
+    if (!isImportOrExportAs && line.match(/\bas\s+[A-Z]/g) && !line.includes('as const')) {
       issues.push({
         id: `TS-${String(++issueCounter).padStart(3, '0')}`,
         category: 'type-safety',
@@ -225,7 +226,15 @@ export function analyzeReactPatterns(content: string, lines: string[], component
   const issues: ReviewIssue[] = [];
   let issueCounter = 0;
 
-  if (!content.includes('displayName') && !content.includes('forwardRef')) {
+  // Named function/const components already show their name in DevTools, so
+  // only components that lose that name (forwardRef/memo wrapping, or an
+  // anonymous default export) actually benefit from an explicit displayName.
+  const needsDisplayName =
+    /\b(?:React\.)?(?:forwardRef|memo)\s*(?:<[^(]*>)?\s*\(/.test(content) ||
+    /export\s+default\s+function\s*\(/.test(content) ||
+    /export\s+default\s+\([^)]*\)\s*=>/.test(content);
+
+  if (needsDisplayName && !content.includes('displayName')) {
     issues.push({
       id: `REACT-${String(++issueCounter).padStart(3, '0')}`,
       category: 'react-patterns',
