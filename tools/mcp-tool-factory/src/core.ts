@@ -203,8 +203,10 @@ export function wirePackageJson(pkgText: string, name: string, prev: string): st
   return JSON.stringify(pkg, null, 2) + '\n';
 }
 
-/** Insert `name` into the TOOLS array of bin/cli.mjs after `prev`. */
+/** Insert `name` into the TOOLS array of bin/cli.mjs right after `prev` (wherever prev sits). */
 export function wireBinCli(binText: string, name: string, prev: string): string {
   if (binText.includes(`"${name}"`)) return binText;
-  return binText.replace(`  "${prev}",\n];`, `  "${prev}",\n  "${name}",\n];`);
+  const anchor = `  "${prev}",\n`;
+  if (!binText.includes(anchor)) return binText;
+  return binText.replace(anchor, `${anchor}  "${name}",\n`);
 }

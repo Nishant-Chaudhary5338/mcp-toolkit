@@ -31,6 +31,7 @@ const TOOLS = [
   "detail-generator",
   "crud-composer",
   "mcp-tool-factory",
+  "mcp-tool-improviser",
   "review-gate",
   "workflow-runner",
   "msw-mock-generator",
