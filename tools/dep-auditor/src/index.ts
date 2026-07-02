@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase, safeReadJson, safeReadFile } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadJson, safeReadFile, detectMonorepo, findUp } from '@mcp-showcase/shared';
 import { renderReportHTML } from '@mcp-showcase/ui-kit';
 import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
@@ -27,17 +27,20 @@ interface MonorepoPackage {
 // ============================================================================
 
 export function findMonorepoRoot(startDir: string): string {
+  const { isMonorepo, workspaceRoot } = detectMonorepo(startDir);
+  if (isMonorepo && workspaceRoot) return workspaceRoot;
+
   let dir = startDir;
   while (dir !== path.dirname(dir)) {
-    if (
-      fs.existsSync(path.join(dir, 'pnpm-workspace.yaml')) ||
-      fs.existsSync(path.join(dir, 'turbo.json'))
-    ) {
-      return dir;
-    }
+    if (fs.existsSync(path.join(dir, 'turbo.json'))) return dir;
     dir = path.dirname(dir);
   }
-  throw new Error('No monorepo root found (no pnpm-workspace.yaml or turbo.json)');
+
+  // Standalone (non-monorepo) package: treat the nearest package.json dir as root.
+  const pkgJsonPath = findUp(startDir, 'package.json');
+  if (pkgJsonPath) return path.dirname(pkgJsonPath);
+
+  throw new Error('No monorepo root found (no pnpm-workspace.yaml, npm workspaces, turbo.json, or package.json)');
 }
 
 export function readWorkspacePatterns(root: string): string[] {
@@ -135,7 +138,9 @@ export function scanSourceFiles(
 
 export function extractImports(content: string): string[] {
   const imports: string[] = [];
-  for (const m of content.matchAll(/import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+)?['"]([^'"]+)['"]/g)) {
+  for (const m of content.matchAll(
+    /import\s+(?:(?:(?:\w+\s*,\s*)?(?:\{[^}]*\}|\*\s+as\s+\w+)|\w+)\s+from\s+)?['"]([^'"]+)['"]/g,
+  )) {
     imports.push(m[1]);
   }
   for (const m of content.matchAll(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
@@ -151,6 +156,64 @@ export function getExternalPackageName(importPath: string): string | null {
     return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : importPath;
   }
   return importPath.split('/')[0];
+}
+
+const PACKAGE_SCAN_SKIP = new Set([
+  'node_modules', 'build', 'dist', '.next', '.turbo', '.git',
+  'coverage', 'out', 'playwright-report', 'test-results',
+]);
+
+/**
+ * Scans an entire package directory (config files, tests, CSS included) —
+ * unlike scanSourceFiles this deliberately does NOT stop at src/ or drop
+ * test/spec/stories files, since those are all legitimate places a
+ * dependency can be referenced (eslint.config.js, vitest.config.ts, *.css).
+ */
+export function scanPackageFiles(
+  dir: string,
+  exts: string[] = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css'],
+): string[] {
+  const files: string[] = [];
+  if (!fs.existsSync(dir)) return files;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (PACKAGE_SCAN_SKIP.has(entry.name)) continue;
+      files.push(...scanPackageFiles(fullPath, exts));
+    } else if (exts.some(e => entry.name.endsWith(e))) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
+/**
+ * Dependency names referenced by a file, beyond plain imports: CSS
+ * `@import`/`@plugin` directives, and the vitest `environment`/coverage
+ * `provider` config keys (whose string values name a package indirectly,
+ * e.g. provider: 'v8' -> @vitest/coverage-v8).
+ */
+export function extractUsedDepsFromFile(filePath: string, content: string): string[] {
+  const used: string[] = [];
+  if (filePath.endsWith('.css')) {
+    for (const m of content.matchAll(/@(?:import|plugin)\s+['"]([^'"]+)['"]/g)) {
+      const name = getExternalPackageName(m[1]);
+      if (name) used.push(name);
+    }
+    return used;
+  }
+  for (const imp of extractImports(content)) {
+    const name = getExternalPackageName(imp);
+    if (name) used.push(name);
+  }
+  for (const m of content.matchAll(/\benvironment\s*:\s*['"]([^'"]+)['"]/g)) {
+    used.push(m[1]);
+  }
+  for (const m of content.matchAll(/\bprovider\s*:\s*['"]([^'"]+)['"]/g)) {
+    used.push(`@vitest/coverage-${m[1]}`);
+  }
+  return used;
 }
 
 const TOOLING_DEPS = new Set([
@@ -193,10 +256,9 @@ class DepAuditorServer extends McpServerBase {
             ...Object.keys(pkg.pkg.devDependencies ?? {}),
           ]);
           const usedDeps = new Set<string>();
-          for (const file of scanSourceFiles(path.join(pkg.path, 'src'))) {
-            for (const imp of extractImports(safeReadFile(file) ?? '')) {
-              const ext = getExternalPackageName(imp);
-              if (ext) usedDeps.add(ext);
+          for (const file of scanPackageFiles(pkg.path)) {
+            for (const dep of extractUsedDepsFromFile(file, safeReadFile(file) ?? '')) {
+              usedDeps.add(dep);
             }
           }
           const unused = [...declaredDeps].filter(
