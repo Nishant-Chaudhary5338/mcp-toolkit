@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "code-graph": {
+      "command": "npx",
+      "args": ["-y", "code-graph-indexer@latest", "mcp"]
+    }
+  }
+}

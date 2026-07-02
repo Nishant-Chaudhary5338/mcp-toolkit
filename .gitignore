@@ -7,3 +7,6 @@ build
 client/dist
 tools/ui-kit/demo
 mcp-publisher
+
+# code-graph-indexer local index (regenerated via npx code-graph-indexer index)
+.code-graph/
