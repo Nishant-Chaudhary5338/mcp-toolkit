@@ -1,0 +1,21 @@
+{
+  "name": "@mcp-showcase/msw-mock-generator",
+  "version": "1.0.0",
+  "description": "Generate MSW request handlers and seed data from a FieldSchema, so the generated CRUD feature runs against a mock API in dev and tests — closing the loop with the CRUD factory.",
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mcp-showcase/shared": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

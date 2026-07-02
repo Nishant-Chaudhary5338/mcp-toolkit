@@ -249,6 +249,15 @@ export const tools: McpTool[] = [
     example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles" }, "router": "rr7" }',
   },
   {
+    id: 'msw-mock-generator',
+    name: 'msw-mock-generator',
+    category: 'CRUD Factory',
+    description: 'Generate MSW request handlers (list/get/create/update/delete) plus deterministic seed data from a FieldSchema, so the generated CRUD feature runs against a mock API in dev and tests.',
+    actions: ['generate_mock'],
+    serverPath: 'tools/msw-mock-generator',
+    example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles" }, "count": 5 }',
+  },
+  {
     id: 'workflow-runner',
     name: 'workflow-runner',
     category: 'CRUD Factory',

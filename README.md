@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 27 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 28 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 27 tools
+npx mcp-react-toolkit --list            # list all 28 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      27 MCP server packages — each independently buildable and runnable
+tools/      28 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 27 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 28 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -133,6 +133,7 @@ One JSON API sample (or OpenAPI schema) fans out into a full, typed CRUD feature
 | `table-generator` | `FieldSchema` → TanStack Table (sort / filter / paginate) | 1 |
 | `detail-generator` | `FieldSchema` → typed detail view + delete action | 1 |
 | `crud-composer` | Wire the pieces into routes — React Router 7 or Next App Router | 1 |
+| `msw-mock-generator` | `FieldSchema` → MSW handlers + seed data, so the generated CRUD runs against a mock API | 1 |
 | `workflow-runner` | Run `schema_to_feature` end-to-end, gated by `review-gate` — returns files + journal + A–F grade | 1 |
 | `review-gate` | Static A–F quality gate for generated/changed code (a11y, tokens, smells, stubs) | 1 |
 
