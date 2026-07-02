@@ -10,7 +10,10 @@ class WorkflowRunnerServer extends McpServerBase {
   protected registerTools(): void {
     this.addTool(
       "run_workflow",
-      "Run a named routine (currently \"schema_to_feature\") over a JSON sample or FieldSchema and return the generated files, a step-by-step journal, and the review grade.",
+      'Run a named routine (currently "schema_to_feature") over a JSON sample or FieldSchema. ' +
+        'Returns { files: [{ filename, code }], journal: [{ step, ok, note }], grade (A–F), passed, resource, dataLayer, router, fileCount }. ' +
+        'The files compose a full CRUD feature: Zod schema, api client (rtk|tanstack), table, detail, create+edit forms, and routes (rr7|next). ' +
+        'Limitation: generated code assumes its peer deps (zod, @reduxjs/toolkit or @tanstack/react-query, react-hook-form, @tanstack/react-table, react-router-dom) are installed in the target project.',
       {
             "type": "object",
             "properties": {

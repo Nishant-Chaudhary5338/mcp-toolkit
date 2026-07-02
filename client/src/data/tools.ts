@@ -4,6 +4,8 @@ export type ToolCategory =
   | 'Analysis'
   | 'Testing'
   | 'Modernization'
+  | 'CRUD Factory'
+  | 'Meta'
   | 'Utilities'
 
 export interface McpTool {
@@ -181,14 +183,101 @@ export const tools: McpTool[] = [
     serverPath: 'tools/json-viewer',
     example: '{ "data": { "key": "value" }, "label": "API response" }',
   },
+
+  // ── CRUD Factory ──────────────────────────────────────────────────────────
   {
     id: 'infer-fields',
     name: 'infer-fields',
-    category: 'Utilities',
+    category: 'CRUD Factory',
     description: 'Infer a typed FieldSchema (fields, types, foreign-key relations, and table/form presentation defaults) from a JSON API sample or an OpenAPI schema. The data contract every CRUD/form/table generator consumes.',
     actions: ['infer_fields'],
     serverPath: 'tools/infer-fields',
     example: '{ "input": "{\\"id\\":1,\\"title\\":\\"Hi\\",\\"authorId\\":5}", "baseEndpoint": "/api/articles" }',
+  },
+  {
+    id: 'zod-schema-generator',
+    name: 'zod-schema-generator',
+    category: 'CRUD Factory',
+    description: 'Generate a Zod schema and its inferred TypeScript type from a FieldSchema — Zod at every boundary for forms and API clients.',
+    actions: ['generate_zod_schema'],
+    serverPath: 'tools/zod-schema-generator',
+    example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles", "idKey": "id", "fields": [] } }',
+  },
+  {
+    id: 'api-client-generator',
+    name: 'api-client-generator',
+    category: 'CRUD Factory',
+    description: 'Generate a typed CRUD data layer from a FieldSchema — an RTK Query api slice or TanStack Query hooks (list/get/create/update/delete) with cache invalidation.',
+    actions: ['generate_api_client'],
+    serverPath: 'tools/api-client-generator',
+    example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles" }, "dataLayer": "rtk" }',
+  },
+  {
+    id: 'form-generator',
+    name: 'form-generator',
+    category: 'CRUD Factory',
+    description: 'Generate a React Hook Form + Zod form component (create or edit) from a FieldSchema, wired to the generated rtk or tanstack mutation hooks.',
+    actions: ['generate_form'],
+    serverPath: 'tools/form-generator',
+    example: '{ "schema": { "resource": "article" }, "mode": "create", "dataLayer": "rtk" }',
+  },
+  {
+    id: 'table-generator',
+    name: 'table-generator',
+    category: 'CRUD Factory',
+    description: 'Generate a TanStack Table data table (sortable headers, global filter, pagination) from a FieldSchema, wired to the generated list hook. Client or server pagination.',
+    actions: ['generate_table'],
+    serverPath: 'tools/table-generator',
+    example: '{ "schema": { "resource": "article" }, "paginationMode": "client", "dataLayer": "rtk" }',
+  },
+  {
+    id: 'detail-generator',
+    name: 'detail-generator',
+    category: 'CRUD Factory',
+    description: 'Generate a typed detail/view component from a FieldSchema — every field as a definition row plus a delete action, wired to the generated get and delete hooks.',
+    actions: ['generate_detail'],
+    serverPath: 'tools/detail-generator',
+    example: '{ "schema": { "resource": "article" }, "dataLayer": "rtk" }',
+  },
+  {
+    id: 'crud-composer',
+    name: 'crud-composer',
+    category: 'CRUD Factory',
+    description: 'Wire the generated table/detail/form components into routes — a React Router 7 route array with param wrappers, or Next App Router app/ segment page files.',
+    actions: ['compose_crud'],
+    serverPath: 'tools/crud-composer',
+    example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles" }, "router": "rr7" }',
+  },
+  {
+    id: 'workflow-runner',
+    name: 'workflow-runner',
+    category: 'CRUD Factory',
+    description: 'Run the schema_to_feature routine end-to-end: infer-fields → zod → api-client → table/detail/form → crud-composer, gated by review-gate. Returns the full generated file set, a per-step journal, and an A–F grade.',
+    actions: ['run_workflow'],
+    serverPath: 'tools/workflow-runner',
+    example: '{ "input": "{\\"id\\":1,\\"title\\":\\"Hi\\"}", "baseEndpoint": "/api/articles", "dataLayer": "rtk", "router": "rr7" }',
+  },
+
+  // ── Code Quality ──────────────────────────────────────────────────────────
+  {
+    id: 'review-gate',
+    name: 'review-gate',
+    category: 'Code Quality',
+    description: 'Static A–F quality gate for generated or changed React/TS code: <img> missing alt and unfilled stubs (errors), any / console.log / hardcoded hex colors (warnings). Grades a file or directory.',
+    actions: ['run_review'],
+    serverPath: 'tools/review-gate',
+    example: '{ "path": "src/features/article" }',
+  },
+
+  // ── Meta ──────────────────────────────────────────────────────────────────
+  {
+    id: 'mcp-tool-factory',
+    name: 'mcp-tool-factory',
+    category: 'Meta',
+    description: 'Scaffold, wire, and verify new MCP tools inside this package — the executable form of the mcp-server-builder skill. Writes the McpServerBase shell + core stub + tests, edits root workspaces/scripts/bin, then builds and smoke-tests.',
+    actions: ['scaffold_tool', 'wire_tool', 'verify_tool'],
+    serverPath: 'tools/mcp-tool-factory',
+    example: '{ "spec": { "name": "my-tool", "description": "...", "actions": [{ "name": "do_thing", "description": "..." }] } }',
   },
 ]
 
@@ -198,6 +287,8 @@ export const categories: ToolCategory[] = [
   'Analysis',
   'Testing',
   'Modernization',
+  'CRUD Factory',
+  'Meta',
   'Utilities',
 ]
 

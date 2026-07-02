@@ -1,8 +1,8 @@
 {
   "name": "mcp-react-toolkit",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "mcpName": "io.github.Nishant-Chaudhary5338/mcp-react-toolkit",
-  "description": "18 MCP servers for React + TypeScript development automation — component scaffolding, dep auditing, WCAG checking, test generation, TypeScript enforcement, render analysis, performance audit, Lighthouse, Storybook generation, legacy app analysis, component review/fix, field-schema inference, and monorepo management.",
+  "description": "27 MCP servers for React + TypeScript development automation — component scaffolding, dep auditing, WCAG checking, test generation, TypeScript enforcement, render analysis, performance audit, Lighthouse, Storybook generation, legacy app analysis, component review/fix, field-schema inference, and monorepo management.",
   "keywords": [
     "mcp",
     "mcp-server",

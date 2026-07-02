@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 18 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 27 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 18 tools
+npx mcp-react-toolkit --list            # list all 27 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      18 MCP server packages — each independently buildable and runnable
+tools/      27 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 18 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 27 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -119,7 +119,28 @@ All 18 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | `monorepo-manager` | Workspace listing, dependency graph, health check, shared dep finder | 6 |
 | `lighthouse-runner` | Static HTML audit — meta tags, a11y, OG/Twitter cards, canonical, JSON-LD | 4 |
 | `json-viewer` | Generate an interactive HTML JSON viewer — collapsible, searchable, dark/light | 3 |
-| `infer-fields` | Infer a typed FieldSchema (types, FK relations, table/form defaults) from a JSON sample or OpenAPI — the data contract for CRUD/form/table generators | 1 |
+
+### CRUD Factory
+
+One JSON API sample (or OpenAPI schema) fans out into a full, typed CRUD feature. Every generator keys off the shared `FieldSchema` contract, so the pieces compose.
+
+| Tool | What it does | MCP tools exposed |
+|---|---|---|
+| `infer-fields` | JSON sample / OpenAPI → typed `FieldSchema` (types, FK relations, table/form defaults) | 1 |
+| `zod-schema-generator` | `FieldSchema` → Zod schema + inferred TS type | 1 |
+| `api-client-generator` | `FieldSchema` → RTK Query slice **or** TanStack Query hooks, with cache tags | 1 |
+| `form-generator` | `FieldSchema` → React Hook Form + Zod form (create / edit) | 1 |
+| `table-generator` | `FieldSchema` → TanStack Table (sort / filter / paginate) | 1 |
+| `detail-generator` | `FieldSchema` → typed detail view + delete action | 1 |
+| `crud-composer` | Wire the pieces into routes — React Router 7 or Next App Router | 1 |
+| `workflow-runner` | Run `schema_to_feature` end-to-end, gated by `review-gate` — returns files + journal + A–F grade | 1 |
+| `review-gate` | Static A–F quality gate for generated/changed code (a11y, tokens, smells, stubs) | 1 |
+
+### Meta
+
+| Tool | What it does | MCP tools exposed |
+|---|---|---|
+| `mcp-tool-factory` | Scaffold + wire + verify new MCP tools in this package — the executable form of the mcp-server-builder skill | 3 |
 
 ---
 
