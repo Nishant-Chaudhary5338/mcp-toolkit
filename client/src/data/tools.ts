@@ -67,6 +67,16 @@ export const tools: McpTool[] = [
     example: '{ "path": "packages/ui/components/Button" }',
   },
 
+  {
+    id: 'refactor-executor',
+    name: 'refactor-executor',
+    category: 'Modernization',
+    description: 'Safely execute refactor plans on React/TS codebases — move/rename files, split modules, update all imports, create barrels, validate the build, and roll back on failure. 10 staged operations.',
+    actions: ['validate-refactor-plan', 'move-files', 'update-imports', 'split-modules', 'apply-refactor', 'rollback-on-failure'],
+    serverPath: 'tools/refactor-executor',
+    example: '{ "path": "/path/to/app", "refactorPlan": { "moves": [], "renames": [], "splits": [] } }',
+  },
+
   // ── Code Quality ──────────────────────────────────────────────────────────
   {
     id: 'quality-pipeline',

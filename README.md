@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 32 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 33 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 32 tools
+npx mcp-react-toolkit --list            # list all 33 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      32 MCP server packages — each independently buildable and runnable
+tools/      33 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 32 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 33 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -103,6 +103,7 @@ All 32 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | Tool | What it does | MCP tools exposed |
 |---|---|---|
 | `code-modernizer` | AST-based JS/JSX → TypeScript conversion, PropTypes → interfaces | 1 |
+| `refactor-executor` | Execute refactor plans safely — move/rename/split, update imports, validate build, rollback | 10 |
 | `typescript-enforcer` | Scan for `any` types, unsafe casts, missing modifiers — 7 rules, scored 0–10 | 4 |
 | `accessibility-checker` | WCAG 2.1 audit — alt text, label associations, ARIA roles, keyboard navigation | 3 |
 | `generate-tests` | Analyze a TypeScript/React source file and generate a Vitest test suite | 2 |
