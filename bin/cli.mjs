@@ -24,6 +24,7 @@ const TOOLS = [
   "lighthouse-runner",
   "json-viewer",
   "infer-fields",
+  "zod-schema-generator",
 ];
 
 const requested = process.argv[2];
