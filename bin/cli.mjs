@@ -26,6 +26,7 @@ const TOOLS = [
   "infer-fields",
   "zod-schema-generator",
   "api-client-generator",
+  "form-generator",
 ];
 
 const requested = process.argv[2];
