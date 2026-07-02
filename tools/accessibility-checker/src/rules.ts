@@ -18,17 +18,32 @@ interface AxeRule {
   check: RuleCheck;
 }
 
+// Full WAI-ARIA 1.2 non-abstract role list (landmark, widget, composite, document
+// structure, live region, window, and graphics-module roles). Abstract roles
+// (e.g. "widget", "structure") are intentionally excluded — authors must not use them.
 const VALID_ARIA_ROLES = new Set([
-  'alert', 'alertdialog', 'application', 'article', 'banner', 'button', 'cell',
-  'checkbox', 'columnheader', 'combobox', 'complementary', 'contentinfo', 'definition',
-  'dialog', 'directory', 'document', 'feed', 'figure', 'form', 'grid', 'gridcell',
-  'group', 'heading', 'img', 'link', 'list', 'listbox', 'listitem', 'log', 'main',
-  'marquee', 'math', 'menu', 'menubar', 'menuitem', 'menuitemcheckbox', 'menuitemradio',
-  'navigation', 'none', 'note', 'option', 'presentation', 'progressbar', 'radio',
-  'radiogroup', 'region', 'row', 'rowgroup', 'rowheader', 'scrollbar', 'search',
-  'searchbox', 'separator', 'slider', 'spinbutton', 'status', 'switch', 'tab', 'table',
-  'tablist', 'tabpanel', 'term', 'textbox', 'timer', 'toolbar', 'tooltip', 'tree',
-  'treegrid', 'treeitem',
+  // Landmark
+  'banner', 'complementary', 'contentinfo', 'form', 'main', 'navigation', 'region', 'search',
+  // Widget
+  'button', 'checkbox', 'gridcell', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio',
+  'option', 'progressbar', 'radio', 'scrollbar', 'searchbox', 'separator', 'slider',
+  'spinbutton', 'switch', 'tab', 'tabpanel', 'textbox', 'treeitem',
+  // Composite widget
+  'combobox', 'grid', 'listbox', 'menu', 'menubar', 'radiogroup', 'tablist', 'tree', 'treegrid',
+  // Document structure
+  'application', 'article', 'associationlist', 'associationlistitemkey',
+  'associationlistitemvalue', 'blockquote', 'caption', 'cell', 'code', 'columnheader',
+  'comment', 'definition', 'deletion', 'directory', 'document', 'emphasis', 'feed', 'figure',
+  'generic', 'group', 'heading', 'img', 'insertion', 'list', 'listitem', 'mark', 'math',
+  'meter', 'none', 'note', 'paragraph', 'presentation', 'row', 'rowgroup', 'rowheader',
+  'strong', 'subscript', 'suggestion', 'superscript', 'table', 'term', 'time', 'toolbar',
+  'tooltip',
+  // Live region
+  'alert', 'log', 'marquee', 'status', 'timer',
+  // Window
+  'alertdialog', 'dialog',
+  // Graphics module (ARIA Graphics)
+  'graphics-document', 'graphics-object', 'graphics-symbol',
 ]);
 
 // Extract a tag's full attribute string (handles multiline JSX by scanning to closing > or />)
@@ -53,6 +68,12 @@ function lineAt(content: string, pos: number): number {
 
 function snippetAt(tag: string): string {
   return tag.replace(/\n\s*/g, ' ').slice(0, 120);
+}
+
+// A forwardRef primitive spreading {...props}/{...rest} may receive its label
+// (id, aria-label, etc.) from the caller — don't hard-flag it as unlabelled.
+function hasSpreadProps(tag: string): boolean {
+  return /\{\s*\.\.\.\w+\s*\}/.test(tag);
 }
 
 export const AXE_RULES: AxeRule[] = [
@@ -176,7 +197,7 @@ export const AXE_RULES: AxeRule[] = [
         if (!isHidden && !isSubmit) {
           const hasLabel = lc.includes('aria-label=') || lc.includes('aria-labelledby=') || lc.includes('id=')
             || lc.includes('aria-describedby=');
-          if (!hasLabel) {
+          if (!hasLabel && !hasSpreadProps(tag)) {
             issues.push({
               rule: 'label', impact: 'critical', file, line: lineAt(content, idx),
               element: snippetAt(tag),
@@ -457,7 +478,9 @@ export const AXE_RULES: AxeRule[] = [
         if (idx === -1) break;
         const { tag, end } = extractTagContent(content, idx);
         const lc = tag.toLowerCase();
-        if (!lc.includes('aria-label=') && !lc.includes('aria-labelledby=') && !lc.includes('id=')) {
+        const hasLabel = lc.includes('aria-label=') || lc.includes('aria-labelledby=') || lc.includes('id=')
+          || lc.includes('aria-describedby=');
+        if (!hasLabel && !hasSpreadProps(tag)) {
           issues.push({
             rule: 'textarea-label', impact: 'serious', file, line: lineAt(content, idx),
             element: snippetAt(tag),
