@@ -337,6 +337,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/mcp-tool-improviser',
     example: '{ "path": "tools/component-factory/src/index.ts" }',
   },
+  {
+    id: 'docs-generator',
+    name: 'docs-generator',
+    category: 'Meta',
+    description: 'Generate documentation from source — a README for an MCP tool (from its addTool registrations) or an API reference for a TS module (from its exported functions/types + JSDoc).',
+    actions: ['generate_tool_docs', 'generate_api_reference'],
+    serverPath: 'tools/docs-generator',
+    example: '{ "path": "tools/infer-fields" }',
+  },
 ]
 
 export const categories: ToolCategory[] = [
