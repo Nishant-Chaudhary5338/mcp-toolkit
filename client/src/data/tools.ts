@@ -327,6 +327,15 @@ export const tools: McpTool[] = [
     example: '{ "baseUrl": "http://localhost:5173", "includeAuth": true }',
   },
   {
+    id: 'visual-regression-setup',
+    name: 'visual-regression-setup',
+    category: 'Testing',
+    description: 'Generate Playwright visual-regression specs (toHaveScreenshot) for routes or Storybook stories, plus the config snippet — catches unintended CSS/layout drift.',
+    actions: ['generate_visual_regression'],
+    serverPath: 'tools/visual-regression-setup',
+    example: '{ "routes": ["/", "/articles"] }',
+  },
+  {
     id: 'fix-failing-tests',
     name: 'fix-failing-tests',
     category: 'Testing',
