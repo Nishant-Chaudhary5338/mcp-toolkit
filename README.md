@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 31 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 32 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 31 tools
+npx mcp-react-toolkit --list            # list all 32 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      31 MCP server packages — each independently buildable and runnable
+tools/      32 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 31 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 32 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -96,6 +96,7 @@ All 31 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | `component-reviewer` | Audit TypeScript errors, a11y issues, test coverage — graded A+ to F | 3 |
 | `component-fixer` | Auto-fix broken imports, missing deps, inline style refactors | 3 |
 | `storybook-generator` | Auto-generate Storybook stories — Default, variants, sizes, callbacks, play functions | 2 |
+| `component-improver` | Extend a component with variants, comprehensive stories, and edge-case tests | 1 |
 
 ### Code Quality & Modernisation
 

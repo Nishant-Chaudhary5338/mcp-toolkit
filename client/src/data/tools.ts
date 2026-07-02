@@ -57,6 +57,16 @@ export const tools: McpTool[] = [
     example: '{ "path": "src/components/Badge.tsx" }',
   },
 
+  {
+    id: 'component-improver',
+    name: 'component-improver',
+    category: 'Component Dev',
+    description: 'Improve a React component directory with extended tests, Storybook stories, and variant coverage — rewrites the test and story files with comprehensive cases.',
+    actions: ['improve'],
+    serverPath: 'tools/component-improver',
+    example: '{ "path": "packages/ui/components/Button" }',
+  },
+
   // ── Code Quality ──────────────────────────────────────────────────────────
   {
     id: 'quality-pipeline',
