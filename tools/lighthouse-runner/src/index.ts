@@ -127,7 +127,7 @@ export function analyzeHtmlFile(filePath: string): { score: number; issues: stri
     }
   }
 
-  if (content.match(/<script(?![^>]*defer)(?![^>]*async)[^>]*src=/)) {
+  if (content.match(/<script(?![^>]*defer)(?![^>]*async)(?![^>]*type=["']module["'])[^>]*src=/)) {
     issues.push('Render-blocking script without defer/async attribute');
     score -= 10;
   }

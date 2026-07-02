@@ -143,4 +143,18 @@ describe('analyzeHtmlFile — render-blocking scripts', () => {
     const { score: without_defer } = analyzeHtmlFile(writeHtml('nodeferx.html', `<html><head><title>T</title><script src="bundle.js"></script></head></html>`));
     expect(with_defer).toBeGreaterThanOrEqual(without_defer);
   });
+
+  it('does not flag a module script (module scripts are deferred by spec)', () => {
+    const html = `<html><head><title>T</title><script type="module" crossorigin src="bundle.js"></script></head></html>`;
+    const filePath = writeHtml('module.html', html);
+    const { issues } = analyzeHtmlFile(filePath);
+    expect(issues.some(i => i.includes('Render-blocking'))).toBe(false);
+  });
+
+  it('still flags a plain blocking script in head', () => {
+    const html = `<html><head><title>T</title><script src="bundle.js"></script></head></html>`;
+    const filePath = writeHtml('stillblocking.html', html);
+    const { issues } = analyzeHtmlFile(filePath);
+    expect(issues.some(i => i.includes('Render-blocking'))).toBe(true);
+  });
 });
