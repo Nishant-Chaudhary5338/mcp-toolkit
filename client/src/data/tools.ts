@@ -5,6 +5,7 @@ export type ToolCategory =
   | 'Testing'
   | 'Modernization'
   | 'CRUD Factory'
+  | 'Boilerplate'
   | 'Meta'
   | 'Utilities'
 
@@ -354,6 +355,17 @@ export const tools: McpTool[] = [
     example: '{ "projectRoot": "/path/to/project" }',
   },
 
+  // ── Boilerplate ───────────────────────────────────────────────────────────
+  {
+    id: 'barrel-generator',
+    name: 'barrel-generator',
+    category: 'Boilerplate',
+    description: 'Generate an index.ts barrel that re-exports every module in a folder (skips index/test/stories/.d.ts/css) — kills hand-maintained export lists that drift.',
+    actions: ['generate_barrel'],
+    serverPath: 'tools/barrel-generator',
+    example: '{ "path": "src/components", "named": true }',
+  },
+
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
     id: 'mcp-tool-factory',
@@ -391,6 +403,7 @@ export const categories: ToolCategory[] = [
   'Testing',
   'Modernization',
   'CRUD Factory',
+  'Boilerplate',
   'Meta',
   'Utilities',
 ]
