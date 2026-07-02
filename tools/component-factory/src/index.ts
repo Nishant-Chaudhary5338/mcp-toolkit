@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase, safeReadJson, isNextJsProject } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadJson, isNextJsProject, resolveCnImport, detectTokenSystem, findPackageRoot } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
 import { renderResultHTML } from '@mcp-showcase/ui-kit';
 import { toResultReport } from './result-report.js';
@@ -24,17 +24,38 @@ import { validateComponentName } from './utils.js';
 // TEMPLATE READER
 // ============================================================================
 
-function readTemplate(componentName: string): string {
+function readTemplate(componentName: string, targetFile: string): string {
   const templatePath = path.join(TEMPLATES_DIR, `${componentName}.tsx`);
   if (!fs.existsSync(templatePath)) {
     throw new Error(`Template not found: ${componentName}. Available: ${getAvailableTemplates().join(', ')}`);
   }
   const content = fs.readFileSync(templatePath, 'utf-8');
-  // Fix @/lib/utils import for standalone use
+  // Rewrite the shadcn `@/lib/utils` cn import to whatever the TARGET project
+  // actually uses — resolved from the real output file location (its own alias,
+  // an existing cn util, or a correctly-nested relative path). The old code
+  // hardcoded `../../lib/utils`, which resolved to the wrong dir for the
+  // Name/Name.tsx layout this tool creates.
+  const { importSpecifier } = resolveCnImport(targetFile);
   return content.replace(
     /import\s+\{?\s*cn\s*\}?\s+from\s+["']@\/lib\/utils["']/g,
-    'import { cn } from "../../lib/utils"'
+    `import { cn } from "${importSpecifier}"`
   );
+}
+
+/** Bare (non-relative, non-alias) package imports a template needs installed. */
+function extractPeerDeps(templateContent: string): string[] {
+  const deps = new Set<string>();
+  const builtIn = new Set(['react', 'react-dom']);
+  for (const m of templateContent.matchAll(/from\s+["']([^"']+)["']/g)) {
+    const spec = m[1];
+    if (spec.startsWith('.') || spec.startsWith('@/') || builtIn.has(spec)) continue;
+    // normalize scoped/deep imports to the installable package name
+    const pkg = spec.startsWith('@')
+      ? spec.split('/').slice(0, 2).join('/')
+      : spec.split('/')[0];
+    deps.add(pkg);
+  }
+  return [...deps];
 }
 
 function getAvailableTemplates(): string[] {
@@ -265,9 +286,11 @@ class ComponentFactoryServer extends McpServerBase {
 
     try {
       const componentName = name.toLowerCase();
-      const templateContent = readTemplate(componentName);
       const componentDir = path.join(outputPath, name);
       const resolvedDir = path.resolve(componentDir);
+      const componentFileAbs = path.join(resolvedDir, `${name}.tsx`);
+      // Resolve the cn import against the REAL output location before rendering.
+      const templateContent = readTemplate(componentName, componentFileAbs);
 
       // Prevent writes to dangerous root paths
       const dangerousRoots = ['/', '/Users', '/home', '/etc', '/usr', '/var', '/tmp'];
@@ -315,12 +338,32 @@ class ComponentFactoryServer extends McpServerBase {
       fs.writeFileSync(indexPath, generateIndexCode(name));
       files.push(indexPath);
 
+      // Surface peer deps + token-system caveats so the output is drop-in usable.
+      const dependencies = extractPeerDeps(templateContent);
+      const cnInfo = resolveCnImport(componentFileAbs);
+      const projectRoot = findPackageRoot(resolvedDir);
+      const tokenSystem = projectRoot ? detectTokenSystem(projectRoot) : 'none';
+      const warnings: string[] = [];
+      if (dependencies.length) {
+        warnings.push(`Install peer deps: npm install ${dependencies.join(' ')}`);
+      }
+      if (cnInfo.needsCreation) {
+        warnings.push(`No \`cn\` util found — create ${cnInfo.importSpecifier} (clsx + tailwind-merge) or the import won't resolve.`);
+      }
+      if (tokenSystem !== 'shadcn') {
+        warnings.push(`This template uses shadcn design tokens (bg-primary, *-foreground). Detected token system: "${tokenSystem}". Map these to your tokens or add a shadcn-compatible token layer, or the component will render unstyled.`);
+      }
+
       const result = {
         componentName: name,
         outputDirectory: componentDir,
         source: 'shadcn/ui template',
         filesGenerated: files.length,
         files,
+        dependencies,
+        cnImport: cnInfo.importSpecifier,
+        tokenSystem,
+        warnings,
         message: `Successfully generated ${name} component with ${files.length} files`,
       };
       return this.successWithUI(result as unknown as Record<string, unknown>, {
@@ -453,13 +496,14 @@ class ComponentFactoryServer extends McpServerBase {
     let content = fs.readFileSync(mainFile, 'utf-8');
     let modified = false;
 
-    // Fix @/lib/utils import paths
+    // Fix @/lib/utils import paths — resolve to the project's real cn util.
     if (content.includes('@/lib/utils')) {
+      const { importSpecifier } = resolveCnImport(mainFile);
       content = content.replace(
         /import\s+\{?\s*cn\s*\}?\s+from\s+["']@\/lib\/utils["']/g,
-        'import { cn } from "../../lib/utils"'
+        `import { cn } from "${importSpecifier}"`
       );
-      fixed.push('Fixed @/lib/utils import → relative path');
+      fixed.push(`Fixed cn import → ${importSpecifier}`);
       modified = true;
     }
 
