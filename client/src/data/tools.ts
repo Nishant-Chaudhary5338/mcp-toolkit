@@ -411,6 +411,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/dependency-remapper',
     example: '{ "path": "/path/to/cra-app", "svgr": true }',
   },
+  {
+    id: 'env-var-migrator',
+    name: 'env-var-migrator',
+    category: 'CRA→Vite',
+    description: 'CRA -> Vite env migration: rewrite process.env.REACT_APP_X to import.meta.env.VITE_X in source, rename REACT_APP_ keys in .env files, and flag dynamic process.env[...] access. Dry-run by default.',
+    actions: ['migrate_env'],
+    serverPath: 'tools/env-var-migrator',
+    example: '{ "path": "/path/to/cra-app", "dryRun": true }',
+  },
 
   // ── Boilerplate ───────────────────────────────────────────────────────────
   {
