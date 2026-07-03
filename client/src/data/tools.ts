@@ -420,6 +420,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/env-var-migrator',
     example: '{ "path": "/path/to/cra-app", "dryRun": true }',
   },
+  {
+    id: 'jest-to-vitest-migrator',
+    name: 'jest-to-vitest-migrator',
+    category: 'CRA→Vite',
+    description: 'Migrate Jest test files to Vitest — jest.* -> vi.* (with requireActual->importActual), add the vitest import, and flag vi.mock factories for manual review. Dry-run by default.',
+    actions: ['migrate_tests'],
+    serverPath: 'tools/jest-to-vitest-migrator',
+    example: '{ "path": "src", "dryRun": true }',
+  },
 
   // ── Boilerplate ───────────────────────────────────────────────────────────
   {
