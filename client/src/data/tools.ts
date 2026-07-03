@@ -477,6 +477,15 @@ export const tools: McpTool[] = [
     example: '{ "distDir": "dist", "budgets": [{ "pattern": "*index.js", "maxKB": 200 }] }',
   },
   {
+    id: 'redux-state-analyzer',
+    name: 'redux-state-analyzer',
+    category: 'Analysis',
+    description: 'Audit a Redux codebase for shortcomings, anti-patterns, and optimizations — re-render-causing selectors (whole-state/inline-object/unmemoized-derived), direct mutations, non-serializable state, connect->hooks, createStore->configureStore, switch-reducers->createSlice, manual thunks that should be RTK Query. Grades A-F.',
+    actions: ['analyze_redux'],
+    serverPath: 'tools/redux-state-analyzer',
+    example: '{ "path": "src/store" }',
+  },
+  {
     id: 'api-contract-differ',
     name: 'api-contract-differ',
     category: 'Analysis',

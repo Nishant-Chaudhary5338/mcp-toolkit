@@ -1,0 +1,10 @@
+{
+  "name": "@mcp-showcase/redux-state-analyzer",
+  "version": "1.0.0",
+  "description": "Audit a Redux codebase for shortcomings, anti-patterns, and optimization opportunities (selectors/re-renders, mutations, non-serializable state, connect->hooks, createStore->configureStore, RTK Query) with severities and a grade.",
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": { "build": "tsc && chmod +x build/index.js", "dev": "tsc --watch", "test": "vitest run" },
+  "dependencies": { "@mcp-showcase/shared": "*", "@modelcontextprotocol/sdk": "^1.12.0" },
+  "devDependencies": { "@types/node": "^20.0.0", "typescript": "^5.0.0", "vitest": "^2.0.0" }
+}
