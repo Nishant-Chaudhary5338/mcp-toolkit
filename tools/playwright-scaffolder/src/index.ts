@@ -23,7 +23,7 @@ class PlaywrightScaffolderServer extends McpServerBase {
       async (args) => {
         const { baseUrl, testDir, includeAuth } = (args ?? {}) as { baseUrl?: string; testDir?: string; includeAuth?: boolean };
         try {
-          return this.success({ ...generatePlaywrightScaffold({ baseUrl, testDir, includeAuth }) });
+          return this.successWithDashboard('Playwright Scaffolder', { ...generatePlaywrightScaffold({ baseUrl, testDir, includeAuth }) });
         } catch (err) {
           return this.error(err);
         }

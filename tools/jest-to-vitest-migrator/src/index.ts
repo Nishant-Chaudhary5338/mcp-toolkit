@@ -51,7 +51,7 @@ class JestToVitestMigratorServer extends McpServerBase {
             }
             for (const n of r.needsReview) needsReview.push({ file: path.relative(target, file) || file, ...n });
           }
-          return this.success({ dryRun, files: results, totalRewrites, needsReview });
+          return this.successWithDashboard('Jest To Vitest Migrator', { dryRun, files: results, totalRewrites, needsReview });
         } catch (err) {
           return this.error(err);
         }

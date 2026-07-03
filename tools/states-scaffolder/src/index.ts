@@ -24,7 +24,7 @@ class StatesScaffolderServer extends McpServerBase {
         if (!name) return this.error(new Error('Missing required argument "name".'));
         const outcome = generateStates({ name, skeletonRows });
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('States Scaffolder', { ...outcome.result });
       },
     );
   }

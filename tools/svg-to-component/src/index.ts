@@ -36,7 +36,7 @@ class SvgToComponentServer extends McpServerBase {
           if (!compName) return this.error(new Error('A "name" is required when passing raw svg.'));
           const outcome = generateSvgComponent(source, { name: compName, currentColor });
           if (!outcome.ok) return this.error(new Error(outcome.error));
-          return this.success({ ...outcome.result });
+          return this.successWithDashboard('Svg To Component', { ...outcome.result });
         } catch (err) {
           return this.error(err);
         }

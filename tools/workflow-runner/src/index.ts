@@ -59,7 +59,7 @@ class WorkflowRunnerServer extends McpServerBase {
       },
       async (args) => {
         try {
-          return this.success({ ...runWorkflow(args) });
+          return this.successWithDashboard('Workflow Runner', { ...runWorkflow(args) });
         } catch (err) {
           return this.error(err);
         }

@@ -301,7 +301,7 @@ class JsonViewerServer extends McpServerBase {
         try { execSync(`${cmd} "${htmlPath}"`, { stdio: 'ignore' }); } catch { /* silent */ }
       }
 
-      return this.success({
+      return this.successWithDashboard('Json Viewer', {
         id, jsonPath, htmlPath,
         message: `JSON saved and viewer generated. Open: ${htmlPath}`,
         stats: { sizeBytes: meta.sizeBytes, keyCount: meta.keyCount, maxDepth: meta.maxDepth },
@@ -324,7 +324,7 @@ class JsonViewerServer extends McpServerBase {
         const entry = safeReadJson<SavedResponse>(path.join(RESPONSES_DIR, file));
         if (entry) responses.push(entry);
       }
-      return this.success({ total: responses.length, responses });
+      return this.successWithDashboard('Json Viewer', { total: responses.length, responses });
     } catch (error) {
       return this.error(error);
     }
@@ -345,7 +345,7 @@ class JsonViewerServer extends McpServerBase {
       const { execSync } = await import('child_process');
       try { execSync(`${cmd} "${meta.htmlPath}"`, { stdio: 'ignore' }); } catch { /* silent */ }
 
-      return this.success({ id: meta.id, label: meta.label, htmlPath: meta.htmlPath, message: `Opened viewer for: ${meta.label}` });
+      return this.successWithDashboard('Json Viewer', { id: meta.id, label: meta.label, htmlPath: meta.htmlPath, message: `Opened viewer for: ${meta.label}` });
     } catch (error) {
       return this.error(error);
     }

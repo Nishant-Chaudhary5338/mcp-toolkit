@@ -24,7 +24,7 @@ class FormWizardGeneratorServer extends McpServerBase {
         if (schema === undefined || schema === null) return this.error(new Error('Missing required argument "schema".'));
         const outcome = generateWizard(schema, { steps });
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Form Wizard Generator', { ...outcome.result });
       },
     );
   }

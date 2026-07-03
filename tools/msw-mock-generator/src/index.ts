@@ -32,7 +32,7 @@ class MswMockGeneratorServer extends McpServerBase {
         if (schema === undefined || schema === null) return this.error(new Error('Missing required argument "schema".'));
         const outcome = generateMock(schema, { count });
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Msw Mock Generator', { ...outcome.result });
       },
     );
   }

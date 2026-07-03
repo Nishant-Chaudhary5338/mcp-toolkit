@@ -28,3 +28,4 @@ export type { ProjectContext, Framework, TokenSystem, AliasMapping } from './pro
 export { isFieldSchema } from './fieldSchema.js';
 export type { FieldType, Field, FieldSchema, DataLayer, Router } from './fieldSchema.js';
 export { cap, pascal, camel, plural, singular, toLabel } from './naming.js';
+export { renderDashboard } from './dashboard.js';

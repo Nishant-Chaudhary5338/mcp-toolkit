@@ -39,7 +39,7 @@ class BundleBudgetGuardServer extends McpServerBase {
         try {
           if (!fs.existsSync(distDir)) throw new Error(`Directory does not exist: ${distDir}`);
           const assets: AssetEntry[] = collect(distDir).map((f) => ({ path: path.relative(distDir, f), bytes: gzipSync(fs.readFileSync(f)).length }));
-          return this.success({ ...evaluateBudget(assets, budgets, defaultMaxKB) });
+          return this.successWithDashboard('Bundle Budget Guard', { ...evaluateBudget(assets, budgets, defaultMaxKB) });
         } catch (err) {
           return this.error(err);
         }

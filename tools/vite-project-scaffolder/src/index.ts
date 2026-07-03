@@ -25,7 +25,7 @@ class ViteProjectScaffolderServer extends McpServerBase {
       },
       async (args) => {
         const opts = (args ?? {}) as Record<string, unknown>;
-        try { return this.success({ ...generateViteProject(opts) }); }
+        try { return this.successWithDashboard('Vite Project Scaffolder', { ...generateViteProject(opts) }); }
         catch (err) { return this.error(err); }
       },
     );

@@ -31,7 +31,7 @@ class DocsGeneratorServer extends McpServerBase {
         try {
           const file = fs.existsSync(p) && fs.statSync(p).isDirectory() ? path.join(p, 'src', 'index.ts') : p;
           const source = fs.readFileSync(file, 'utf8');
-          return this.success({ ...generateToolDocs(source) });
+          return this.successWithDashboard('Docs Generator', { ...generateToolDocs(source) });
         } catch (err) {
           return this.error(err);
         }
@@ -57,7 +57,7 @@ class DocsGeneratorServer extends McpServerBase {
         if (!p) return this.error(new Error('Missing required argument "path".'));
         try {
           const source = fs.readFileSync(p, 'utf8');
-          return this.success({ ...generateApiReference(source, p) });
+          return this.successWithDashboard('Docs Generator', { ...generateApiReference(source, p) });
         } catch (err) {
           return this.error(err);
         }

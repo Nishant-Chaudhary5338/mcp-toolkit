@@ -24,7 +24,7 @@ class TypeFromJsonServer extends McpServerBase {
         if (input === undefined || input === null) return this.error(new Error('Missing required argument "input".'));
         const outcome = generateTypes(input, rootName ?? 'Root');
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Type From Json', { ...outcome.result });
       },
     );
   }

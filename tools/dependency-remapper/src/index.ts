@@ -32,7 +32,7 @@ class DependencyRemapperServer extends McpServerBase {
             merged = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
           }
           if (!merged) return this.error(new Error('Provide a project "path" or a "deps" object.'));
-          return this.success({ ...planRemap(merged, { svgr, sass }) });
+          return this.successWithDashboard('Dependency Remapper', { ...planRemap(merged, { svgr, sass }) });
         } catch (err) {
           return this.error(err);
         }

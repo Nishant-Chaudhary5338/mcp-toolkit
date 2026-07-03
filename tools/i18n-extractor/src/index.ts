@@ -40,7 +40,7 @@ class I18nExtractorServer extends McpServerBase {
           for (const file of collect(target)) {
             for (const h of extractStrings(fs.readFileSync(file, 'utf8'), file)) hits.push(h);
           }
-          return this.success({ ...buildCatalog(hits) });
+          return this.successWithDashboard('I18n Extractor', { ...buildCatalog(hits) });
         } catch (err) {
           return this.error(err);
         }

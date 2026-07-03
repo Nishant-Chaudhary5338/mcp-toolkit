@@ -26,7 +26,7 @@ class ZustandStoreGeneratorServer extends McpServerBase {
         if (!name || !state) return this.error(new Error('Missing required arguments "name" and "state".'));
         const outcome = generateStore({ name, state, persist, devtools });
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Zustand Store Generator', { ...outcome.result });
       },
     );
   }

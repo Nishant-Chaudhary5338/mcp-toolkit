@@ -28,7 +28,7 @@ class ApiContractDifferServer extends McpServerBase {
       async (args) => {
         const { old: o, new: n } = (args ?? {}) as { old?: string; new?: string };
         if (o === undefined || n === undefined) return this.error(new Error('Both "old" and "new" contracts are required.'));
-        try { return this.success({ ...diffContracts(load(o), load(n)) }); }
+        try { return this.successWithDashboard('Api Contract Differ', { ...diffContracts(load(o), load(n)) }); }
         catch (err) { return this.error(err); }
       },
     );

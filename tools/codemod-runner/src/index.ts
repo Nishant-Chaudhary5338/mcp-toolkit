@@ -26,7 +26,7 @@ class CodemodRunnerServer extends McpServerBase {
       'list_builtins',
       'List the built-in named codemods (e.g. cra-env-to-vite, jest-fn-to-vi, react-render-to-createroot).',
       { type: 'object', properties: {}, required: [] },
-      async () => this.success({ builtins: Object.keys(BUILTIN_RULES) }),
+      async () => this.successWithDashboard('Codemod Runner', { builtins: Object.keys(BUILTIN_RULES) }),
     );
     this.addTool(
       'run_codemod',
@@ -61,7 +61,7 @@ class CodemodRunnerServer extends McpServerBase {
               if (!dryRun) fs.writeFileSync(file, code, 'utf8');
             }
           }
-          return this.success({ dryRun, totalMatches: total, files: results });
+          return this.successWithDashboard('Codemod Runner', { dryRun, totalMatches: total, files: results });
         } catch (err) {
           return this.error(err);
         }

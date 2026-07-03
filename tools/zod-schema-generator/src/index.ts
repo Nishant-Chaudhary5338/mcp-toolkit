@@ -28,7 +28,7 @@ class ZodSchemaGeneratorServer extends McpServerBase {
         }
         const outcome = generateZodSchema(schema);
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Zod Schema Generator', { ...outcome.result });
       },
     );
   }

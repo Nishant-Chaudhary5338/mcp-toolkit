@@ -25,7 +25,7 @@ class ReviewGateServer extends McpServerBase {
       },
       async (args) => {
         try {
-          return this.success({ ...runReview(args) });
+          return this.successWithDashboard('Review Gate', { ...runReview(args) });
         } catch (err) {
           return this.error(err);
         }

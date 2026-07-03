@@ -24,7 +24,7 @@ class E2EGeneratorServer extends McpServerBase {
         if (schema === undefined || schema === null) return this.error(new Error('Missing required argument "schema".'));
         const outcome = generateE2E(schema, { routeBase });
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('E2e Generator', { ...outcome.result });
       },
     );
   }

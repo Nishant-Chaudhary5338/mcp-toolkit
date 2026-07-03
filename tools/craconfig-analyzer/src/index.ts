@@ -48,7 +48,7 @@ class CraconfigAnalyzerServer extends McpServerBase {
             envFiles,
             jsconfig: readJson(path.join(root, 'jsconfig.json')) as { compilerOptions?: { baseUrl?: string } } | undefined,
           });
-          return this.success({ ...profile });
+          return this.successWithDashboard('Craconfig Analyzer', { ...profile });
         } catch (err) {
           return this.error(err);
         }

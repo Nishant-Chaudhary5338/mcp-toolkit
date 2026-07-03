@@ -68,7 +68,7 @@ class McpToolFactoryServer extends McpServerBase {
             fs.writeFileSync(abs, file.content, 'utf8');
             written.push(path.relative(root, abs));
           }
-          return this.success({
+          return this.successWithDashboard('Mcp Tool Factory', {
             tool: spec.name,
             written,
             nextSteps: [
@@ -105,7 +105,7 @@ class McpToolFactoryServer extends McpServerBase {
           const binPath = path.join(root, 'bin', 'cli.mjs');
           fs.writeFileSync(pkgPath, wirePackageJson(fs.readFileSync(pkgPath, 'utf8'), name, prev), 'utf8');
           fs.writeFileSync(binPath, wireBinCli(fs.readFileSync(binPath, 'utf8'), name, prev), 'utf8');
-          return this.success({ wired: name, after: prev });
+          return this.successWithDashboard('Mcp Tool Factory', { wired: name, after: prev });
         } catch (err) {
           return this.error(err);
         }
@@ -159,7 +159,7 @@ class McpToolFactoryServer extends McpServerBase {
             }
           }
           const passed = build.ok && test.ok && smoke.ok;
-          return this.success({ tool: name, passed, build, test, smoke });
+          return this.successWithDashboard('Mcp Tool Factory', { tool: name, passed, build, test, smoke });
         } catch (err) {
           return this.error(err);
         }

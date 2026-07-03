@@ -21,7 +21,7 @@ class TestDataFactoryServer extends McpServerBase {
         if (schema === undefined || schema === null) return this.error(new Error('Missing required argument "schema".'));
         const outcome = generateFactory(schema);
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Test Data Factory', { ...outcome.result });
       },
     );
   }

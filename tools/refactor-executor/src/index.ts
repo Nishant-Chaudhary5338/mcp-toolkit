@@ -281,7 +281,7 @@ class RefactorExecutorServer extends McpServerBase {
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
-      return this.success(result as Record<string, unknown>);
+      return this.successWithDashboard('Refactor Executor', result as Record<string, unknown>);
     } catch (err) {
       return this.error(err);
     }

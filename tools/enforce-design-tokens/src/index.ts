@@ -24,7 +24,7 @@ class EnforceDesignTokensServer extends McpServerBase {
         if (!target) return this.error(new Error('Missing required argument "path".'));
         try {
           const violations = filterBySeverity(scanPath(target), severity);
-          return this.success({
+          return this.successWithDashboard('Enforce Design Tokens', {
             summary: {
               totalViolations: violations.length,
               high: violations.filter((v) => v.severity === 'high').length,
@@ -52,7 +52,7 @@ class EnforceDesignTokensServer extends McpServerBase {
         if (!target) return this.error(new Error('Missing required argument "path".'));
         try {
           const suggestions = scanPath(target).map((v) => ({ file: v.file, line: v.line, replace: v.value, with: v.tokenSuggestion, type: v.type }));
-          return this.success({ suggestions });
+          return this.successWithDashboard('Enforce Design Tokens', { suggestions });
         } catch (err) {
           return this.error(err);
         }
@@ -74,7 +74,7 @@ class EnforceDesignTokensServer extends McpServerBase {
           const violations = scanPath(target);
           const byFile: Record<string, TokenViolation[]> = {};
           for (const v of violations) (byFile[v.file] ??= []).push(v);
-          return this.success({
+          return this.successWithDashboard('Enforce Design Tokens', {
             grade: gradeViolations(violations),
             passed: violations.filter((v) => v.severity === 'high').length === 0,
             totalViolations: violations.length,

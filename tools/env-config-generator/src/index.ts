@@ -24,7 +24,7 @@ class EnvConfigGeneratorServer extends McpServerBase {
         const { names, envExample, target } = (args ?? {}) as { names?: string[]; envExample?: string; target?: EnvTarget };
         const outcome = generateEnvConfig({ names, envExample, target });
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Env Config Generator', { ...outcome.result });
       },
     );
   }

@@ -33,7 +33,7 @@ class ApiClientGeneratorServer extends McpServerBase {
         }
         const outcome = generateApiClient(schema, { dataLayer });
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Api Client Generator', { ...outcome.result });
       },
     );
   }

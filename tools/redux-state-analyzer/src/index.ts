@@ -39,7 +39,7 @@ class ReduxStateAnalyzerServer extends McpServerBase {
             counts = mergeCounts(counts, r.counts);
             issues.push(...r.issues);
           }
-          return this.success({ ...buildReport(counts, issues, files.length) });
+          return this.successWithDashboard('Redux State Analyzer', { ...buildReport(counts, issues, files.length) });
         } catch (err) {
           return this.error(err);
         }

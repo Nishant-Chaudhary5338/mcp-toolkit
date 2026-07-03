@@ -42,7 +42,7 @@ class InferFieldsServer extends McpServerBase {
         try {
           const result = inferFields({ input, resource, baseEndpoint });
           if (!result.ok) return this.error(new Error(result.error));
-          return this.success({ schema: result.schema, source: result.source, count: result.count });
+          return this.successWithDashboard('Infer Fields', { schema: result.schema, source: result.source, count: result.count });
         } catch (err) {
           return this.error(err);
         }

@@ -25,7 +25,7 @@ class WebpackConfigTranslatorServer extends McpServerBase {
         try {
           const text = p ? fs.readFileSync(p, 'utf8') : config;
           if (!text) return this.error(new Error('Provide "config" text or a "path".'));
-          return this.success({ ...translateWebpack(text) });
+          return this.successWithDashboard('Webpack Config Translator', { ...translateWebpack(text) });
         } catch (err) {
           return this.error(err);
         }

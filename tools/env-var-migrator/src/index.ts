@@ -56,7 +56,7 @@ class EnvVarMigratorServer extends McpServerBase {
               if (r.count > 0) { envFiles.push({ file: name, renamed: r.count }); if (!dryRun) fs.writeFileSync(p, r.text, 'utf8'); }
             }
           }
-          return this.success({ dryRun, sourceFiles, envFiles, totalRewrites, dynamicAccess });
+          return this.successWithDashboard('Env Var Migrator', { dryRun, sourceFiles, envFiles, totalRewrites, dynamicAccess });
         } catch (err) {
           return this.error(err);
         }

@@ -27,7 +27,7 @@ class ComponentImproverServer extends McpServerBase {
           if (!fs.existsSync(componentPath)) throw new Error(`Component path does not exist: ${componentPath}`);
           const componentName = path.basename(componentPath);
           const result = improviseComponent(componentPath, componentName);
-          return this.success({
+          return this.successWithDashboard('Component Improver', {
             component: componentName,
             improvements: { enhanced: result.enhanced, added: result.added },
             message: result.enhanced.length > 0 ? `Enhanced ${result.enhanced.length} file(s)` : 'No improvements needed',

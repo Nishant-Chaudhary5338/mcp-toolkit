@@ -16,7 +16,7 @@ class ReactCompilerMigratorServer extends McpServerBase {
       async (args) => {
         const { path: p } = (args ?? {}) as { path?: string };
         if (!p) return this.error(new Error('Missing required argument "path".'));
-        try { return this.success({ ...analyzeCompiler(fs.readFileSync(p, 'utf8'), p) }); }
+        try { return this.successWithDashboard('React Compiler Migrator', { ...analyzeCompiler(fs.readFileSync(p, 'utf8'), p) }); }
         catch (err) { return this.error(err); }
       },
     );
@@ -27,7 +27,7 @@ class ReactCompilerMigratorServer extends McpServerBase {
       async (args) => {
         const { path: p } = (args ?? {}) as { path?: string };
         if (!p) return this.error(new Error('Missing required argument "path".'));
-        try { return this.success({ code: stripMemoization(fs.readFileSync(p, 'utf8')) }); }
+        try { return this.successWithDashboard('React Compiler Migrator', { code: stripMemoization(fs.readFileSync(p, 'utf8')) }); }
         catch (err) { return this.error(err); }
       },
     );

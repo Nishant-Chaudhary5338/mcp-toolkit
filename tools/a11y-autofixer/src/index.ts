@@ -16,7 +16,7 @@ class A11yAutofixerServer extends McpServerBase {
       async (args) => {
         const { path: p } = (args ?? {}) as { path?: string };
         if (!p) return this.error(new Error('Missing required argument "path".'));
-        try { return this.success({ ...fixA11y(fs.readFileSync(p, 'utf8')) }); }
+        try { return this.successWithDashboard('A11y Autofixer', { ...fixA11y(fs.readFileSync(p, 'utf8')) }); }
         catch (err) { return this.error(err); }
       },
     );

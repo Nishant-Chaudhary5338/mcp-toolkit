@@ -26,7 +26,7 @@ class BarrelGeneratorServer extends McpServerBase {
         try {
           if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) throw new Error(`Not a directory: ${dir}`);
           const files = fs.readdirSync(dir).filter((f) => fs.statSync(`${dir}/${f}`).isFile());
-          return this.success({ ...buildBarrel(files, { named }) });
+          return this.successWithDashboard('Barrel Generator', { ...buildBarrel(files, { named }) });
         } catch (err) {
           return this.error(err);
         }

@@ -32,7 +32,7 @@ class FixFailingTestsServer extends McpServerBase {
         if (!projectRoot) return this.error(new Error('Missing required argument "projectRoot".'));
         try {
           const result = runTests(projectRoot, testPath);
-          return this.success({
+          return this.successWithDashboard('Fix Failing Tests', {
             allPassing: result.failed === 0,
             runner: detectTestRunner(projectRoot),
             passed: result.passed,
@@ -56,8 +56,8 @@ class FixFailingTestsServer extends McpServerBase {
         if (!projectRoot) return this.error(new Error('Missing required argument "projectRoot".'));
         try {
           const result = runTests(projectRoot, testPath);
-          if (result.failed === 0) return this.success({ allPassing: true, passed: result.passed });
-          return this.success({
+          if (result.failed === 0) return this.successWithDashboard('Fix Failing Tests', { allPassing: true, passed: result.passed });
+          return this.successWithDashboard('Fix Failing Tests', {
             totalFailures: result.failed,
             errorBreakdown: {
               assertion: result.failures.filter((f) => f.errorType === 'assertion').length,
@@ -83,13 +83,13 @@ class FixFailingTestsServer extends McpServerBase {
         if (!projectRoot) return this.error(new Error('Missing required argument "projectRoot".'));
         try {
           const result = runTests(projectRoot, testPath);
-          if (result.failed === 0) return this.success({ message: 'All tests passing — no fixes needed', passed: result.passed });
+          if (result.failed === 0) return this.successWithDashboard('Fix Failing Tests', { message: 'All tests passing — no fixes needed', passed: result.passed });
           const fixes = result.failures.map((f) => {
             const sourceFile = findSourceForTest(f.file);
             const sourceContent = sourceFile ? fs.readFileSync(sourceFile, 'utf-8') : '';
             return { testName: f.testName, file: f.file, errorType: f.errorType, suggestion: f.suggestion, fixCode: generateFix(f, sourceContent) };
           });
-          return this.success({ totalFixes: fixes.length, fixes });
+          return this.successWithDashboard('Fix Failing Tests', { totalFixes: fixes.length, fixes });
         } catch (err) {
           return this.error(err);
         }

@@ -151,7 +151,7 @@ class McpToolImproviserServer extends McpServerBase {
     const result: AnalysisResult = analyzeTool(resolvedPath);
     const duration = Date.now() - startTime;
 
-    return this.success({
+    return this.successWithDashboard('Mcp Tool Improviser', {
       ...result,
       metadata: {
         timestamp: new Date().toISOString(),
@@ -235,7 +235,7 @@ class McpToolImproviserServer extends McpServerBase {
 
     const duration = Date.now() - startTime;
 
-    return this.success({
+    return this.successWithDashboard('Mcp Tool Improviser', {
       ...batchResult,
       metadata: {
         timestamp: new Date().toISOString(),
@@ -274,7 +274,7 @@ class McpToolImproviserServer extends McpServerBase {
       });
 
       const duration = Date.now() - startTime;
-      return this.success({
+      return this.successWithDashboard('Mcp Tool Improviser', {
         dryRun: true,
         validation,
         totalChanges: diffs.reduce((sum, d) => sum + d.changes.length, 0),
@@ -295,7 +295,7 @@ class McpToolImproviserServer extends McpServerBase {
     const successCount = results.filter((r) => r.success).length;
     const failCount = results.filter((r) => !r.success).length;
 
-    return this.success({
+    return this.successWithDashboard('Mcp Tool Improviser', {
       results,
       summary: {
         totalFiles: results.length,
@@ -329,7 +329,7 @@ class McpToolImproviserServer extends McpServerBase {
 
     const success = rollbackFromBackup(resolvedBackup, resolvedOriginal);
 
-    return this.success({
+    return this.successWithDashboard('Mcp Tool Improviser', {
       restored: success,
       backupPath: resolvedBackup,
       originalPath: resolvedOriginal,

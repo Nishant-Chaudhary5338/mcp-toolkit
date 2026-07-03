@@ -94,7 +94,7 @@ class CraToViteServer extends McpServerBase {
           const manualReview = collectManualReview(profile, unsupported, dynamicEnv);
           const grade = gradeMigration(journal, manualReview);
 
-          return this.success({
+          return this.successWithDashboard('Cra To Vite', {
             profile, depRemap, webpackTranslation,
             scaffoldFiles: scaffold.files.map((f) => f.path),
             envMigration: { rewrites: envRewrites, dynamicAccess: dynamicEnv, envFiles },

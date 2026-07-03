@@ -24,7 +24,7 @@ class VisualRegressionSetupServer extends McpServerBase {
         const { routes, storyIds, fullPage } = (args ?? {}) as { routes?: string[]; storyIds?: string[]; fullPage?: boolean };
         const outcome = generateVisualRegression({ routes, storyIds, fullPage });
         if (!outcome.ok) return this.error(new Error(outcome.error));
-        return this.success({ ...outcome.result });
+        return this.successWithDashboard('Visual Regression Setup', { ...outcome.result });
       },
     );
   }
