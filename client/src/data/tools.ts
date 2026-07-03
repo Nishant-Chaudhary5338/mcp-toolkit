@@ -410,6 +410,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/states-scaffolder',
     example: '{ "name": "article", "skeletonRows": 5 }',
   },
+  {
+    id: 'i18n-extractor',
+    name: 'i18n-extractor',
+    category: 'Analysis',
+    description: 'Scan JSX for hardcoded user-facing strings (text + translatable attributes) and produce i18n keys + a message catalog. Pure mechanical extraction.',
+    actions: ['extract_strings'],
+    serverPath: 'tools/i18n-extractor',
+    example: '{ "path": "src/features" }',
+  },
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
