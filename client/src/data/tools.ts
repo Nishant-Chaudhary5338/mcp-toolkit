@@ -392,6 +392,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/svg-to-component',
     example: '{ "path": "src/icons/arrow.svg" }',
   },
+  {
+    id: 'env-config-generator',
+    name: 'env-config-generator',
+    category: 'Boilerplate',
+    description: 'Generate a Zod-validated, typed env module (Vite or Next) from env var names or an .env.example — throws on boot with a readable error. Zod at the env boundary.',
+    actions: ['generate_env_config'],
+    serverPath: 'tools/env-config-generator',
+    example: '{ "names": ["API_URL", "SECRET_KEY"], "target": "vite" }',
+  },
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
