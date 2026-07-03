@@ -86,6 +86,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/react-compiler-migrator',
     example: '{ "path": "src/components/DataGrid.tsx" }',
   },
+  {
+    id: 'a11y-autofixer',
+    name: 'a11y-autofixer',
+    category: 'Modernization',
+    description: 'The execute-half of accessibility-checker — apply safe, mechanical a11y fixes (img alt="", target=_blank rel, label for->htmlFor, tabindex->tabIndex) and report each.',
+    actions: ['fix_a11y'],
+    serverPath: 'tools/a11y-autofixer',
+    example: '{ "path": "src/components/Card.tsx" }',
+  },
 
   // ── Code Quality ──────────────────────────────────────────────────────────
   {
