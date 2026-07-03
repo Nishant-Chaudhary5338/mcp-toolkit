@@ -270,6 +270,15 @@ export const tools: McpTool[] = [
     example: '{ "schema": { "resource": "article", "baseEndpoint": "/api/articles" }, "router": "rr7" }',
   },
   {
+    id: 'form-wizard-generator',
+    name: 'form-wizard-generator',
+    category: 'CRUD Factory',
+    description: 'Generate a multi-step React Hook Form + Zod wizard (per-step validation, progress, back/next, merged submit) from a FieldSchema and step grouping — for onboarding/checkout flows.',
+    actions: ['generate_wizard'],
+    serverPath: 'tools/form-wizard-generator',
+    example: '{ "schema": { "resource": "signup" }, "steps": [{ "title": "Account", "fields": ["email"] }] }',
+  },
+  {
     id: 'msw-mock-generator',
     name: 'msw-mock-generator',
     category: 'CRUD Factory',
