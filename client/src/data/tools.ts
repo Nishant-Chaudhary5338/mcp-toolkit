@@ -5,6 +5,7 @@ export type ToolCategory =
   | 'Testing'
   | 'Modernization'
   | 'CRUD Factory'
+  | 'CRA→Vite'
   | 'Boilerplate'
   | 'Meta'
   | 'Utilities'
@@ -391,6 +392,17 @@ export const tools: McpTool[] = [
     example: '{ "projectRoot": "/path/to/project" }',
   },
 
+  // ── CRA→Vite ──────────────────────────────────────────────────────────────
+  {
+    id: 'craconfig-analyzer',
+    name: 'craconfig-analyzer',
+    category: 'CRA→Vite',
+    description: 'CRA-specific deep inspection across the full config surface — react-scripts/ejection/CRACO, REACT_APP_ env vars + .env files, %PUBLIC_URL%/homepage, proxy, jest + setupTests, browserslist, eslint-config-react-app, SASS, service worker, SVG imports.',
+    actions: ['analyze_cra'],
+    serverPath: 'tools/craconfig-analyzer',
+    example: '{ "path": "/path/to/cra-app" }',
+  },
+
   // ── Boilerplate ───────────────────────────────────────────────────────────
   {
     id: 'barrel-generator',
@@ -511,6 +523,7 @@ export const categories: ToolCategory[] = [
   'Testing',
   'Modernization',
   'CRUD Factory',
+  'CRA→Vite',
   'Boilerplate',
   'Meta',
   'Utilities',

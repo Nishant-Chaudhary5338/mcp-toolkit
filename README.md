@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 51 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 52 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 51 tools
+npx mcp-react-toolkit --list            # list all 52 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      51 MCP server packages — each independently buildable and runnable
+tools/      52 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 51 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 52 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -151,6 +151,14 @@ One JSON API sample (or OpenAPI schema) fans out into a full, typed CRUD feature
 | `playwright-scaffolder` | Scaffold the Playwright harness — config, fixtures, base POM, auth setup | 1 |
 | `visual-regression-setup` | Playwright toHaveScreenshot specs for routes/stories — catch CSS drift | 1 |
 | `review-gate` | Static A–F quality gate for generated/changed code (a11y, tokens, smells, stubs) | 1 |
+
+### CRA → Vite
+
+Migrate a Create-React-App project to Vite: analyze → plan → scaffold → migrate → verify.
+
+| Tool | What it does | MCP tools exposed |
+|---|---|---|
+| `craconfig-analyzer` | Deep CRA config inspection (react-scripts, env, proxy, jest, browserslist, PWA, SVG…) | 1 |
 
 ### Boilerplate
 
