@@ -28,6 +28,32 @@ describe('built-in rules', () => {
     const r = applyCodemod('jest.fn(); jest.mock("x");', BUILTIN_RULES['jest-fn-to-vi']!);
     expect(r.code).toBe('vi.fn(); vi.mock("x");');
   });
+
+  describe('default-react-import-drop', () => {
+    it('drops the import when the file only uses JSX (react-jsx transform makes it redundant)', () => {
+      const r = applyCodemod("import React from 'react';\nfunction App() { return <div/>; }\nexport default App;\n", BUILTIN_RULES['default-react-import-drop']!);
+      expect(r.code).not.toContain("import React from 'react'");
+      expect(r.count).toBe(1);
+    });
+
+    it('keeps the import when React.* is referenced elsewhere (QA harness regression)', () => {
+      // A blind drop broke real files, including vite-project-scaffolder's own
+      // generated main.tsx, which wraps the app in <React.StrictMode> — found
+      // dogfooding the real "apply" path of the cra-to-vite pipeline against a
+      // genuine create-react-app fixture.
+      const code = "import React from 'react';\nimport ReactDOM from 'react-dom/client';\nReactDOM.createRoot(x).render(<React.StrictMode><App /></React.StrictMode>);\n";
+      const r = applyCodemod(code, BUILTIN_RULES['default-react-import-drop']!);
+      expect(r.code).toContain("import React from 'react'");
+      expect(r.count).toBe(0);
+    });
+
+    it('keeps the import for React.Fragment / React.forwardRef usage too', () => {
+      const r1 = applyCodemod("import React from 'react';\nconst x = <React.Fragment />;\n", BUILTIN_RULES['default-react-import-drop']!);
+      expect(r1.code).toContain("import React from 'react'");
+      const r2 = applyCodemod("import React from 'react';\nconst C = React.forwardRef(() => null);\n", BUILTIN_RULES['default-react-import-drop']!);
+      expect(r2.code).toContain("import React from 'react'");
+    });
+  });
 });
 
 describe('resolveRule', () => {

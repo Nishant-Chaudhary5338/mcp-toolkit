@@ -20,7 +20,13 @@ export const BUILTIN_RULES: Record<string, CodemodRule> = {
   'cra-env-to-vite': { find: 'process\\.env\\.REACT_APP_([A-Z0-9_]+)', replace: 'import.meta.env.VITE_$1', flags: 'g' },
   'react-render-to-createroot': { find: "ReactDOM\\.render\\(\\s*([\\s\\S]*?),\\s*document\\.getElementById\\(['\"]root['\"]\\)\\s*\\)", replace: "ReactDOM.createRoot(document.getElementById('root')!).render($1)", flags: 'g' },
   'jest-fn-to-vi': { find: '\\bjest\\.(fn|mock|spyOn|clearAllMocks|resetAllMocks)\\b', replace: 'vi.$1', flags: 'g' },
-  'default-react-import-drop': { find: "import React from 'react';\\n", replace: '', flags: 'g' },
+  // Only drops the import if `React.` isn't referenced anywhere else in the
+  // file (React.StrictMode, React.Fragment, React.forwardRef, etc. still need
+  // it even under the react-jsx transform). A blind drop broke real files —
+  // including vite-project-scaffolder's OWN generated main.tsx, which wraps
+  // the app in <React.StrictMode> — found dogfooding the real "apply" path of
+  // the cra-to-vite pipeline against a genuine create-react-app fixture.
+  'default-react-import-drop': { find: "import React from 'react';\\n(?![\\s\\S]*React\\.)", replace: '', flags: 'g' },
   'test-id-to-testid': { find: 'data-test-id=', replace: 'data-testid=', flags: 'g' },
 };
 
