@@ -447,6 +447,15 @@ export const tools: McpTool[] = [
     example: '{ "name": "article", "skeletonRows": 5 }',
   },
   {
+    id: 'bundle-budget-guard',
+    name: 'bundle-budget-guard',
+    category: 'Analysis',
+    description: 'Evaluate gzipped built asset sizes against per-pattern budgets and return a pass/fail CI gate — the missing gate step for bundle analysis.',
+    actions: ['check_budget'],
+    serverPath: 'tools/bundle-budget-guard',
+    example: '{ "distDir": "dist", "budgets": [{ "pattern": "*index.js", "maxKB": 200 }] }',
+  },
+  {
     id: 'i18n-extractor',
     name: 'i18n-extractor',
     category: 'Analysis',
