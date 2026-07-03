@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 43 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 44 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 43 tools
+npx mcp-react-toolkit --list            # list all 44 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      43 MCP server packages — each independently buildable and runnable
+tools/      44 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 43 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 44 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -154,6 +154,7 @@ One JSON API sample (or OpenAPI schema) fans out into a full, typed CRUD feature
 | `zustand-store-generator` | State shape → typed Zustand store (setters, reset, persist/devtools) | 1 |
 | `svg-to-component` | Raw SVG → typed React component (SVGProps, currentColor) — SVGR-grade | 1 |
 | `env-config-generator` | Zod-validated typed env module (Vite/Next) — fail fast on missing/bad vars | 1 |
+| `states-scaffolder` | Loading/empty/error state components + a switch wrapper for a data view | 1 |
 
 ### Meta
 

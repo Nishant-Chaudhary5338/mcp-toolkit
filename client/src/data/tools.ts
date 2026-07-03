@@ -401,6 +401,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/env-config-generator',
     example: '{ "names": ["API_URL", "SECRET_KEY"], "target": "vite" }',
   },
+  {
+    id: 'states-scaffolder',
+    name: 'states-scaffolder',
+    category: 'Boilerplate',
+    description: 'Generate loading-skeleton, empty-state, and error-state components plus an <XStates> switch wrapper for a data view — kills the copy-pasted conditional-render boilerplate.',
+    actions: ['generate_states'],
+    serverPath: 'tools/states-scaffolder',
+    example: '{ "name": "article", "skeletonRows": 5 }',
+  },
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
