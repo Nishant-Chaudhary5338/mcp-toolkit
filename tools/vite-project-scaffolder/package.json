@@ -1,0 +1,10 @@
+{
+  "name": "@mcp-showcase/vite-project-scaffolder",
+  "version": "1.0.0",
+  "description": "Generate the Vite project shell for a CRA migration — vite.config.ts (react/svgr/alias/proxy/base), root index.html, src/main.tsx (createRoot), strict tsconfig(.node).json, vite-env.d.ts.",
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": { "build": "tsc && chmod +x build/index.js", "dev": "tsc --watch", "test": "vitest run" },
+  "dependencies": { "@mcp-showcase/shared": "*", "@modelcontextprotocol/sdk": "^1.12.0" },
+  "devDependencies": { "@types/node": "^20.0.0", "typescript": "^5.0.0", "vitest": "^2.0.0" }
+}

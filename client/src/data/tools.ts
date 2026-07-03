@@ -429,6 +429,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/jest-to-vitest-migrator',
     example: '{ "path": "src", "dryRun": true }',
   },
+  {
+    id: 'vite-project-scaffolder',
+    name: 'vite-project-scaffolder',
+    category: 'CRA→Vite',
+    description: 'Generate the Vite project shell for a CRA migration — vite.config.ts (react/svgr/alias/proxy/base), root index.html, src/main.tsx (createRoot), strict tsconfig(.node).json, vite-env.d.ts.',
+    actions: ['scaffold_vite'],
+    serverPath: 'tools/vite-project-scaffolder',
+    example: '{ "appName": "My App", "svgr": true, "proxyTarget": "http://localhost:4000" }',
+  },
 
   // ── Boilerplate ───────────────────────────────────────────────────────────
   {
