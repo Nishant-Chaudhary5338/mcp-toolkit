@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveScaffoldOptions, collectManualReview, gradeMigration, type CraProfileLike } from './core.js';
+import { deriveScaffoldOptions, collectManualReview, gradeMigration, buildNextSteps, type CraProfileLike } from './core.js';
 
 const base: CraProfileLike = {
   isCRA: true, ejected: false, craco: false, publicUrlUsed: false, svgReactComponentImport: false,
@@ -21,6 +21,7 @@ describe('collectManualReview', () => {
     const r = collectManualReview({ ...base, ejected: true, proxy: { type: 'setupProxy' }, serviceWorker: true, publicUrlUsed: true }, ['WeirdPlugin'], 2);
     expect(r.join(' ')).toMatch(/Ejected/);
     expect(r.join(' ')).toMatch(/setupProxy/);
+    expect(r.join(' ')).toMatch(/loadEnv/);
     expect(r.join(' ')).toMatch(/[Ss]ervice worker/);
     expect(r.join(' ')).toMatch(/PUBLIC_URL/);
     expect(r.join(' ')).toMatch(/dynamic/);
@@ -29,6 +30,30 @@ describe('collectManualReview', () => {
 
   it('is empty for a clean modern CRA', () => {
     expect(collectManualReview(base)).toEqual([]);
+  });
+
+  it('flags eslint-config-react-app since it depends on react-scripts being removed (real-cra-app dogfood finding)', () => {
+    // Found dogfooding against a genuine `create-react-app --template typescript`
+    // fixture: craconfig-analyzer detects eslintConfigReactApp but nothing
+    // surfaced it as an actionable review item — a real user would have no
+    // signal that their lint config breaks once react-scripts is removed.
+    const r = collectManualReview({ ...base, eslintConfigReactApp: true });
+    expect(r.join(' ')).toMatch(/eslint-config-react-app/);
+    expect(r.join(' ')).toMatch(/react-scripts/);
+  });
+});
+
+describe('buildNextSteps', () => {
+  it('always tells the user to drop unused React imports before building (QA harness regression)', () => {
+    // Found dogfooding the real "apply" path against a genuine create-react-app
+    // fixture: vite-project-scaffolder's tsconfig sets noUnusedLocals and uses
+    // the react-jsx transform, so `import React from 'react'` (present in
+    // virtually every CRA file) becomes a build-breaking TS6133. The toolkit
+    // already ships codemod-runner's default-react-import-drop rule for this.
+    const steps = buildNextSteps('/app');
+    expect(steps.some((s) => s.includes('default-react-import-drop'))).toBe(true);
+    expect(steps.some((s) => s.includes('env-var-migrator'))).toBe(true);
+    expect(steps.some((s) => s.includes('jest-to-vitest-migrator'))).toBe(true);
   });
 });
 

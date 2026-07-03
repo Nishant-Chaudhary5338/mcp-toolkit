@@ -8,7 +8,7 @@ import { translateWebpack } from '@mcp-showcase/webpack-config-translator/build/
 import { generateViteProject } from '@mcp-showcase/vite-project-scaffolder/build/core.js';
 import { migrateSource } from '@mcp-showcase/env-var-migrator/build/core.js';
 import { migrateTest } from '@mcp-showcase/jest-to-vitest-migrator/build/core.js';
-import { deriveScaffoldOptions, collectManualReview, gradeMigration, type JournalEntry } from './core.js';
+import { deriveScaffoldOptions, collectManualReview, gradeMigration, buildNextSteps, type JournalEntry } from './core.js';
 
 const SKIP = new Set(['node_modules', 'build', 'dist', '.git']);
 function walk(dir: string, test: (name: string) => boolean): string[] {
@@ -77,7 +77,11 @@ class CraToViteServer extends McpServerBase {
           if (cfgPath) { webpackTranslation = translateWebpack(fs.readFileSync(cfgPath, 'utf8')); journal.push({ step: 'translate-webpack', ok: true, note: `${webpackTranslation.plugins.length} plugin(s), ${webpackTranslation.manualReview.length} to review` }); }
 
           // 4. SCAFFOLD the Vite shell
-          const scaffoldOpts = deriveScaffoldOptions(profile, packageJson.name ?? 'App');
+          // profile.hasSetupTests is nested under jestConfig on the real
+          // craconfig-analyzer profile — flatten it explicitly here rather than
+          // relying on structural typing, which would silently leave it
+          // undefined (the optional field is absent, not just unset).
+          const scaffoldOpts = deriveScaffoldOptions({ ...profile, hasSetupTests: profile.jestConfig.hasSetupTests }, packageJson.name ?? 'App');
           const scaffold = generateViteProject(scaffoldOpts);
           const target = outDir ?? `${root}-vite`;
           if (!dryRun) { for (const f of scaffold.files) { const abs = path.join(target, f.path); fs.mkdirSync(path.dirname(abs), { recursive: true }); fs.writeFileSync(abs, f.code, 'utf8'); } }
@@ -101,11 +105,7 @@ class CraToViteServer extends McpServerBase {
             testMigration: { rewrites: testRewrites, files: testFiles.length },
             manualReview, journal, grade,
             outputPath: dryRun ? null : target,
-            nextSteps: [
-              `env-var-migrator migrate_env { path: "${root}", dryRun: false }`,
-              `jest-to-vitest-migrator migrate_tests { path: "${root}/src", dryRun: false }`,
-              'Copy src/ into the Vite project, install the remapped deps, and run `vite build`.',
-            ],
+            nextSteps: buildNextSteps(root),
           });
         } catch (err) {
           return this.error(err);
