@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 50 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 51 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 50 tools
+npx mcp-react-toolkit --list            # list all 51 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      50 MCP server packages — each independently buildable and runnable
+tools/      51 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 50 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 51 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -115,6 +115,7 @@ All 50 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | `performance-audit` | Memory leaks, heavy imports, unoptimized images, deep nesting | 3 |
 | `test-gap-analyzer` | Find unimplemented functions, uncovered branches, missing edge cases | 3 |
 | `bundle-budget-guard` | Gate gzipped asset sizes against per-pattern budgets — fail CI on regressions | 1 |
+| `api-contract-differ` | Diff two API snapshots → breaking vs additive changes — CI gate against breaks | 1 |
 | `i18n-extractor` | Scan JSX for hardcoded strings → i18n keys + message catalog | 1 |
 | `enforce-design-tokens` | Flag hardcoded colors/spacing/radii/shadows, suggest tokens, grade A–F | 3 |
 | `test-data-factory` | `FieldSchema` → typed fixture factory (makeX/makeXs + overrides) for tests/stories | 1 |

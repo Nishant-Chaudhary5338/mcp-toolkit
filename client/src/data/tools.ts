@@ -456,6 +456,15 @@ export const tools: McpTool[] = [
     example: '{ "distDir": "dist", "budgets": [{ "pattern": "*index.js", "maxKB": 200 }] }',
   },
   {
+    id: 'api-contract-differ',
+    name: 'api-contract-differ',
+    category: 'Analysis',
+    description: 'Diff two API contract snapshots (JSON samples or OpenAPI schemas) and classify changes as breaking (removed field, type change) vs additive — a CI gate against contract breaks.',
+    actions: ['diff_contract'],
+    serverPath: 'tools/api-contract-differ',
+    example: '{ "old": "api.snapshot.json", "new": "{\\"id\\":1}" }',
+  },
+  {
     id: 'i18n-extractor',
     name: 'i18n-extractor',
     category: 'Analysis',
