@@ -599,6 +599,10 @@ export const categoryColors: Record<ToolCategory, string> = {
   'Analysis':      '#45C7D6',
   'Testing':       '#C792EA',
   'Modernization': '#F5B544',
+  'CRUD Factory':  '#FF8A65',
+  'CRA→Vite':      '#7C4DFF',
+  'Boilerplate':   '#4FD1C5',
+  'Meta':          '#F06292',
   'Utilities':     '#9DA2A9',
 }
 
