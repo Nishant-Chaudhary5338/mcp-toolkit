@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { generateDetail } from './core.js';
 import type { FieldSchema, Field } from '@mcp-showcase/shared';
 
-function f(name: string, type: Field['type']): Field {
-  return { name, label: name.charAt(0).toUpperCase() + name.slice(1), type, required: true, table: { show: true, sortable: true, filterable: true }, form: { show: true } };
+function f(name: string, type: Field['type'], extra: Partial<Field> = {}): Field {
+  return { name, label: name.charAt(0).toUpperCase() + name.slice(1), type, required: true, table: { show: true, sortable: true, filterable: true }, form: { show: true }, ...extra };
 }
 
 const schema: FieldSchema = {
@@ -19,8 +19,8 @@ describe('generateDetail', () => {
     if (!out.ok) throw new Error(out.error);
     const { code } = out.result;
     expect(code).toContain("<dt className=\"font-medium text-gray-600\">Title</dt>");
-    expect(code).toContain("{String(data.title ?? '—')}");
-    expect(code).toContain("{String(data.body ?? '—')}");
+    expect(code).toContain('{data.title}');
+    expect(code).toContain('{data.body}');
     expect(out.result.componentName).toBe('ArticleDetail');
   });
 
@@ -65,6 +65,58 @@ describe('generateDetail', () => {
     if (!out.ok) throw new Error(out.error);
     expect(out.result.code).toContain('export function ArticleDetail({ id, onDelete }: { id: string; onDelete?: () => void }) {');
     expect(out.result.code).not.toContain('{ id, onDelete?:');
+  });
+
+  it('does not add a String()/?? fallback for a required string field (QA harness regression)', () => {
+    // Found under typescript-eslint strictTypeChecked: a required field's TS type
+    // can never be undefined, so `data.title ?? '—'` was flagged no-unnecessary-
+    // condition, and String() around an already-string value was flagged
+    // no-unnecessary-type-conversion.
+    const out = generateDetail({ ...schema, fields: [f('title', 'text', { required: true })] });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('{data.title}');
+    expect(out.result.code).not.toContain('String(data.title');
+    expect(out.result.code).not.toContain("data.title ?? '—'");
+  });
+
+  it('keeps the ?? fallback for an optional string field, still without String()', () => {
+    const out = generateDetail({ ...schema, fields: [f('subtitle', 'text', { required: false })] });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain("{data.subtitle ?? '—'}");
+    expect(out.result.code).not.toContain('String(data.subtitle');
+  });
+
+  it('does not wrap a date field in String() — zod-schema-generator types dates as plain strings', () => {
+    // Second QA harness finding on the same root cause: `date` fields are typed
+    // z.string() (ISO strings, not Date objects) by zod-schema-generator, so
+    // String(data.publishedAt) was also a no-op flagged by no-unnecessary-type-conversion.
+    const out = generateDetail({ ...schema, fields: [f('publishedAt', 'date', { required: true })] });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('{data.publishedAt}');
+    expect(out.result.code).not.toContain('String(data.publishedAt');
+  });
+
+  it('wraps non-string fields (number/boolean/relation) in String() since JSX cannot render them directly', () => {
+    const out = generateDetail({
+      ...schema,
+      fields: [
+        f('views', 'number', { required: true }),
+        f('featured', 'boolean', { required: true }),
+        f('authorId', 'relation', { required: false, relation: { resource: 'author', labelKey: 'name' } }),
+      ],
+    });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('{String(data.views)}');
+    expect(out.result.code).toContain('{String(data.featured)}');
+    expect(out.result.code).toContain("{String(data.authorId ?? '—')}");
+  });
+
+  it('wraps the delete handler so onClick resolves to void, not a Promise (QA harness regression)', () => {
+    // no-misused-promises: onClick expects (e) => void, not () => Promise<void>.
+    const out = generateDetail(schema, { dataLayer: 'rtk' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('onClick={() => { void handleDelete(); }}');
+    expect(out.result.code).not.toContain('onClick={handleDelete}');
   });
 
   it('rejects a non-FieldSchema and unknown dataLayer', () => {

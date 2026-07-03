@@ -24,10 +24,28 @@ export interface GenerateDetailOptions {
   dataLayer?: DataLayer;
 }
 
+// Types whose underlying Zod/TS type is already `string` (see zod-schema-generator):
+// text/email/textarea/password -> z.string(); select -> z.enum([...]); date -> z.string()
+// (dates are ISO strings, not Date objects). Only number/boolean/relation produce
+// a non-string TS type and need String() to render safely in JSX.
+const STRINGY_TYPES = new Set(['text', 'email', 'textarea', 'password', 'select', 'date']);
+
+/**
+ * Render the value expression for a field. Only optional fields get a `??`
+ * fallback (required fields are typed as always-present, so TS — correctly,
+ * under strict lint — flags a fallback on them as an unreachable condition).
+ * Only non-string-typed fields (number/boolean/date/relation) get wrapped in
+ * String(...); wrapping an already-string value is a no-op strict lint flags.
+ */
+function valueExpr(f: Field): string {
+  const accessor = f.required ? `data.${f.name}` : `data.${f.name} ?? '—'`;
+  return STRINGY_TYPES.has(f.type) ? `{${accessor}}` : `{String(${accessor})}`;
+}
+
 function row(f: Field): string {
   return `        <div className="flex justify-between border-b py-2">
           <dt className="font-medium text-gray-600">${f.label}</dt>
-          <dd className="text-gray-900">{String(data.${f.name} ?? '—')}</dd>
+          <dd className="text-gray-900">${valueExpr(f)}</dd>
         </div>`;
 }
 
@@ -84,7 +102,7 @@ ${rows}
       </dl>
       <button
         type="button"
-        onClick={handleDelete}
+        onClick={() => { void handleDelete(); }}
         className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
       >
         Delete ${Type}
