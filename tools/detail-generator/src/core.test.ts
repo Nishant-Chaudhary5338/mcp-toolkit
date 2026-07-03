@@ -48,6 +48,25 @@ describe('generateDetail', () => {
     expect(out.result.code).toContain('if (error || !data) return');
   });
 
+  it('does not import the resource type — nothing in the output references it (QA harness regression)', () => {
+    // Found by the cross-app compile QA harness under strict tsconfigs (noUnusedLocals):
+    // `import type { Article } from './Article.schema'` was emitted but never referenced —
+    // the hooks already carry full type inference. TS6133 under strict settings.
+    const out = generateDetail(schema, { dataLayer: 'rtk' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).not.toContain("from './Article.schema'");
+  });
+
+  it('emits a valid destructuring pattern for the onDelete prop (QA harness regression)', () => {
+    // Found by the cross-app compile QA harness: the type annotation was previously
+    // interpolated into both the destructuring pattern and the type block, producing
+    // `{ id, onDelete?: () => void }` — invalid syntax (TS1005/TS1138).
+    const out = generateDetail(schema, { dataLayer: 'rtk' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('export function ArticleDetail({ id, onDelete }: { id: string; onDelete?: () => void }) {');
+    expect(out.result.code).not.toContain('{ id, onDelete?:');
+  });
+
   it('rejects a non-FieldSchema and unknown dataLayer', () => {
     expect(generateDetail({ x: 1 }).ok).toBe(false);
     // @ts-expect-error runtime guard

@@ -62,12 +62,11 @@ export function generateDetail(input: unknown, opts: GenerateDetailOptions = {})
   const componentName = `${Type}Detail`;
   const w = wiring(Type, dataLayer);
   const rows = fs.fields.map(row).join('\n');
-  const onDelete = `onDelete?: () => void`;
+  const onDeleteType = `onDelete?: () => void`;
 
-  const code = `import type { ${Type} } from './${Type}.schema';
-${w.imports}
+  const code = `${w.imports}
 
-export function ${componentName}({ id, ${onDelete} }: { id: string; ${onDelete} }) {
+export function ${componentName}({ id, onDelete }: { id: string; ${onDeleteType} }) {
 ${w.setup}
 
   if (isLoading) return <p className="text-sm text-gray-500">Loading…</p>;
