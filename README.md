@@ -10,6 +10,28 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ---
 
+## Why this exists — the token math
+
+A coding agent working **without** composed tools does everything as a multi-turn loop: read a file, reason, write a file, re-read to check itself, repeat — and every one of those turns re-sends the accumulating conversation as input tokens. That loop shape is the single biggest cost driver in agentic coding today, independent of any specific tool:
+
+- Agent loops run **~3.2× the tokens of a single direct call at 5 steps, ~30× at 50 steps, and over 100× past 200 steps** — a typical multi-file build/debug session — because re-sent context alone accounts for ~62% of the token bill. ([LeanOps](https://leanopstech.com/blog/agentic-ai-cost-runaway-token-budget-2026/))
+- Real agentic sessions run an **input:output ratio of ~25:1** (vs. near 1:1 for a direct call), with a single 50-turn session commonly hitting **~1M input tokens**; the same team's non-agentic usage on comparable work runs roughly **200× cheaper per interaction**. ([Vantage](https://www.vantage.sh/blog/agentic-coding-costs))
+- Agentic tasks consume on the order of **1000× the tokens of single-turn work**, with up to 30× run-to-run variance on the identical task — multi-turn looping is inherently unpredictable, not just expensive. ([arXiv: Tokenomics](https://arxiv.org/html/2601.14470v1))
+
+This toolkit's composed tools (`workflow-runner`'s `schema_to_feature`, `cra-to-vite`) exist specifically to collapse that shape: instead of an agent looping through 7–8 separate read/write/verify turns to hand-build a CRUD feature or migrate a CRA app, one MCP call runs all the generator/migration steps **in-process** and returns the finished result. That's exactly the "50-turn loop → 1 call" collapse the research above shows saves 10–100×, not the more modest 20–40% you'd see from just adding one extra tool call into an otherwise-unchanged agent loop.
+
+We also ran our own controlled, measured benchmark (`ax-benchmark`, 6 real tasks, `claude -p` headless, three arms: agent-alone / agent+one-MCP-tool / tool-called-directly) — a conservative baseline *because it only tested adding one tool call into an existing loop*, not full-pipeline collapse:
+
+| | Agent alone | Agent + one MCP tool | Tool called directly |
+|---|---|---|---|
+| Analysis tasks (review, a11y, legacy-code) | baseline | **~41% lower cost** | ~100% free, ~15× faster (when in scope) |
+| All 6 tasks, blended | baseline | ~19% lower cost | — |
+| New code (component, tests) | baseline | roughly cost-neutral | not applicable to novel work |
+
+Two honest caveats: (1) cost, not wall-time, is the fair metric here — the agent-alone arm ran headless with no shell access and over-explored on open-ended tasks, inflating its time but not its cost; (2) on small, novel, single-file work the tool's structured-output overhead can offset what it saves — the win is concentrated in repetitive, mechanical, multi-file work, which is also where the multi-turn-loop tax above is largest.
+
+---
+
 ## Install
 
 Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 59 servers straight from npm:
