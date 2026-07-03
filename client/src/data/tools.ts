@@ -77,6 +77,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/refactor-executor',
     example: '{ "path": "/path/to/app", "refactorPlan": { "moves": [], "renames": [], "splits": [] } }',
   },
+  {
+    id: 'react-compiler-migrator',
+    name: 'react-compiler-migrator',
+    category: 'Modernization',
+    description: 'Flag redundant useMemo/useCallback/React.memo for the React 19 Compiler and rules-of-hooks blockers, with a best-effort strip of the simple single-expression cases.',
+    actions: ['analyze_compiler_readiness', 'strip_memoization'],
+    serverPath: 'tools/react-compiler-migrator',
+    example: '{ "path": "src/components/DataGrid.tsx" }',
+  },
 
   // ── Code Quality ──────────────────────────────────────────────────────────
   {
