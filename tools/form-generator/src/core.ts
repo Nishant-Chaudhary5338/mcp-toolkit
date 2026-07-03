@@ -65,7 +65,7 @@ function fieldBlock(f: Field): string {
   return `        <div className="space-y-1">
           <label htmlFor="${f.name}" className="block text-sm font-medium">${f.label}</label>
           ${control(f)}
-          {errors.${f.name} && <p className="text-sm text-red-600">{errors.${f.name}?.message as string}</p>}
+          {errors.${f.name} && <p className="text-sm text-red-600">{errors.${f.name}.message}</p>}
         </div>`;
 }
 
@@ -171,7 +171,7 @@ ${resolverOpts}
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={(e) => { void onSubmit(e); }} className="space-y-4">
 ${fields}
       <button type="submit" disabled={${w.loadingExpr}} className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50">
         ${submitLabel}

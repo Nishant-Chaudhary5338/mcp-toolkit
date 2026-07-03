@@ -67,6 +67,27 @@ describe('generateForm — edit', () => {
   });
 });
 
+describe('generateForm — strict lint QA regression (2026-07-04)', () => {
+  // Found by the cross-app QA harness under typescript-eslint strictTypeChecked:
+  // `<form onSubmit={onSubmit}>` passed a Promise-returning handler directly to
+  // an attribute expecting void (no-misused-promises); `errors.field?.message as
+  // string` was flagged for both an unnecessary optional chain (already guarded
+  // by `errors.field &&`) and a non-nullable-type-assertion-style violation.
+  it('wraps the async submit handler so onSubmit resolves to void, not a Promise', () => {
+    const out = generateForm(schema, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('onSubmit={(e) => { void onSubmit(e); }}');
+    expect(out.result.code).not.toContain('onSubmit={onSubmit}');
+  });
+
+  it('renders the field error message without a redundant optional chain or cast', () => {
+    const out = generateForm(schema, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('{errors.title.message}');
+    expect(out.result.code).not.toContain('?.message as string');
+  });
+});
+
 describe('generateForm — errors', () => {
   it('rejects a non-FieldSchema', () => {
     expect(generateForm({ nope: 1 }).ok).toBe(false);
