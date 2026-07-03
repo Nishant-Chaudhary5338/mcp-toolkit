@@ -95,6 +95,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/a11y-autofixer',
     example: '{ "path": "src/components/Card.tsx" }',
   },
+  {
+    id: 'codemod-runner',
+    name: 'codemod-runner',
+    category: 'Modernization',
+    description: 'A generic rule-based codemod engine — apply a find/replace (regex with backrefs) or a named built-in migration (cra-env-to-vite, jest-fn-to-vi, react-render-to-createroot) across files. Dry-run by default.',
+    actions: ['run_codemod', 'list_builtins'],
+    serverPath: 'tools/codemod-runner',
+    example: '{ "path": "src", "rule": "jest-fn-to-vi", "dryRun": true }',
+  },
 
   // ── Code Quality ──────────────────────────────────────────────────────────
   {

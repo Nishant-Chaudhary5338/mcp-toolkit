@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 48 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 49 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 48 tools
+npx mcp-react-toolkit --list            # list all 49 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      48 MCP server packages — each independently buildable and runnable
+tools/      49 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 48 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 49 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -106,6 +106,7 @@ All 48 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | `refactor-executor` | Execute refactor plans safely — move/rename/split, update imports, validate build, rollback | 10 |
 | `react-compiler-migrator` | Flag redundant useMemo/useCallback/memo for the React 19 Compiler + rules-of-hooks blockers | 2 |
 | `a11y-autofixer` | Apply safe a11y fixes (img alt, blank rel, htmlFor, tabIndex) — the execute half | 1 |
+| `codemod-runner` | Generic regex codemod engine + named built-ins (env, jest→vi, render→createRoot); dry-run | 2 |
 | `typescript-enforcer` | Scan for `any` types, unsafe casts, missing modifiers — 7 rules, scored 0–10 | 4 |
 | `accessibility-checker` | WCAG 2.1 audit — alt text, label associations, ARIA roles, keyboard navigation | 3 |
 | `generate-tests` | Analyze a TypeScript/React source file and generate a Vitest test suite | 2 |
