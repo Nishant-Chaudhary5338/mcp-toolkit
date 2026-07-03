@@ -18,6 +18,11 @@ export interface ApiRefResult {
   symbols: { kind: string; name: string; signature: string; doc: string }[];
 }
 
+/** Above this many characters, the export/action regexes' repeated backtracking on a
+ * single huge source string can blow the heap (QA harness regression: 72MB file OOM'd
+ * the process). Fail fast with a clean error instead. */
+export const MAX_SOURCE_LENGTH = 5_000_000;
+
 /** Grab the first two string-literal arguments of each addTool(...) call. */
 function extractActions(source: string): { name: string; description: string }[] {
   const actions: { name: string; description: string }[] = [];
@@ -45,6 +50,9 @@ function extractArgs(source: string, action: string): string[] {
 }
 
 export function generateToolDocs(source: string): ToolDocsResult {
+  if (source.length > MAX_SOURCE_LENGTH) {
+    throw new Error(`Source too large to process (${source.length} chars, max ${MAX_SOURCE_LENGTH}).`);
+  }
   const nameMatch = source.match(/super\(\s*\{\s*name:\s*(['"`])([^'"`]+)\1/);
   const toolName = nameMatch ? nameMatch[2] : 'unknown-tool';
   const actions = extractActions(source);
@@ -103,6 +111,9 @@ function findLeadingDocBlock(source: string, matchStart: number): string | undef
 }
 
 export function generateApiReference(source: string, filename = 'module'): ApiRefResult {
+  if (source.length > MAX_SOURCE_LENGTH) {
+    throw new Error(`Source too large to process (${source.length} chars, max ${MAX_SOURCE_LENGTH}).`);
+  }
   const symbols: ApiRefResult['symbols'] = [];
   let m: RegExpExecArray | null;
   while ((m = EXPORT_RE.exec(source)) !== null) {

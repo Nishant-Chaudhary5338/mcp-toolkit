@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateToolDocs, generateApiReference } from './core.js';
+import { generateToolDocs, generateApiReference, MAX_SOURCE_LENGTH } from './core.js';
 
 const TOOL_SRC = `import { McpServerBase } from '@mcp-showcase/shared';
 class DemoServer extends McpServerBase {
@@ -37,6 +37,14 @@ describe('generateToolDocs', () => {
     generateToolDocs(src);
     expect(Date.now() - start).toBeLessThan(2000);
   });
+
+  it('rejects an oversized source instead of running the action regex over it (QA harness regression)', () => {
+    // Found dogfooding the path/file adversarial matrix: a 72MB source file
+    // OOM-crashed the process ("FATAL ERROR: Reached heap limit") before this
+    // guard existed — the export/action regexes have no inherent size limit.
+    const huge = 'x'.repeat(MAX_SOURCE_LENGTH + 1);
+    expect(() => generateToolDocs(huge)).toThrow(/too large/i);
+  });
 });
 
 describe('generateApiReference', () => {
@@ -67,5 +75,10 @@ describe('generateApiReference', () => {
     const start = Date.now();
     generateApiReference(src, 'big.ts');
     expect(Date.now() - start).toBeLessThan(2000);
+  });
+
+  it('rejects an oversized source instead of running the export regex over it (QA harness regression)', () => {
+    const huge = 'x'.repeat(MAX_SOURCE_LENGTH + 1);
+    expect(() => generateApiReference(huge, 'huge.ts')).toThrow(/too large/i);
   });
 });

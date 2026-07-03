@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { McpServerBase } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadFile, MAX_FILE_BYTES } from '@mcp-showcase/shared';
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateToolDocs, generateApiReference } from './core.js';
@@ -30,7 +30,8 @@ class DocsGeneratorServer extends McpServerBase {
         if (!p) return this.error(new Error('Missing required argument "path".'));
         try {
           const file = fs.existsSync(p) && fs.statSync(p).isDirectory() ? path.join(p, 'src', 'index.ts') : p;
-          const source = fs.readFileSync(file, 'utf8');
+          const source = safeReadFile(file);
+          if (source === null) throw new Error(`File too large or unreadable (max ${MAX_FILE_BYTES / (1024 * 1024)}MB): ${file}`);
           return this.successWithDashboard('Docs Generator', { ...generateToolDocs(source) });
         } catch (err) {
           return this.error(err);
@@ -56,7 +57,8 @@ class DocsGeneratorServer extends McpServerBase {
         const { path: p } = (args ?? {}) as { path?: string };
         if (!p) return this.error(new Error('Missing required argument "path".'));
         try {
-          const source = fs.readFileSync(p, 'utf8');
+          const source = safeReadFile(p);
+          if (source === null) throw new Error(`File too large or unreadable (max ${MAX_FILE_BYTES / (1024 * 1024)}MB): ${p}`);
           return this.successWithDashboard('Docs Generator', { ...generateApiReference(source, p) });
         } catch (err) {
           return this.error(err);
