@@ -6,6 +6,22 @@
 
 ---
 
+## 🟢 Cross-app compile QA pass — 2026-07-04 — ✅ FIXED
+
+New QA infrastructure: [`mcp-toolkit-qa`](../mcp-toolkit-qa) (sibling repo) — 8 real, `npm install`-able fixture apps (default Vite+RTK+Tailwind, TanStack-only, Next 15 App Router, non-Vite/`tsc`-only, no-Tailwind/CSS-Modules, pnpm monorepo, real `create-react-app` CLI output, strict-`typescript-eslint`) plus a harness (`harness/run-qa.mjs`) that drives `workflow-runner`'s `schema_to_feature` against each and runs the fixture's **real build** — the layer-4 gap unit tests alone can't close (generated code compiling in an app with real, installed peer deps). This is distinct from the dogfood passes above, which drive tools against existing hand-written codebases; this harness generates fresh code into disposable fixtures on every run.
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| 1 | P1 | `detail-generator` | Emitted `{ id, onDelete?: () => void }` — a type annotation inside the destructuring pattern itself (invalid syntax, TS1005/TS1138). Failed in every fixture immediately. | ✅ FIXED — destructure `{ id, onDelete }`, keep the type only in the `: { ... }` block. Regression test added. |
+| 2 | P2 | `detail-generator` | `import type { Article } from './Article.schema'` was emitted but never referenced anywhere in the component body (the RTK/TanStack hooks already carry full type inference) — TS6133 under any tsconfig with `noUnusedLocals`. The toolkit's own build config doesn't set that flag, which is why 1064 existing unit tests never caught it. | ✅ FIXED — import removed entirely. Regression test added. |
+| 3 | P1 | `crud-composer` | Next-router dynamic-route pages (`[id]/page.tsx`, `[id]/edit/page.tsx`) typed `params` as a plain `{ id: string }` object. Next 15 requires `params` to be a `Promise` on **all** page components, including client-component pages — real error: `Type '{ params: { id: string } }' does not satisfy 'PageProps'`. Only surfaced against a real Next 15.5 build; nothing in the unit suite exercises an actual Next compiler. | ✅ FIXED — kept `'use client'`, unwrapped with React 19's `use(params)` instead of making the page async. Regression test added. |
+
+All 3 fixes are regression-tested in their tool's own suite and re-verified: all 6 workflow-runner-driven fixtures (`vite-rtk-tailwind`, `vite-tanstack`, `rr7-non-vite`, `no-tailwind-css-modules`, `next15-app-router`, `pnpm-monorepo`) pass their real build end-to-end. `real-cra-app` and `strict-eslint-repo` verified independently (real CRA CLI build; strict lint+build both clean) but not yet wired into `run-qa.mjs`.
+
+Also wired: `scripts/improviser-gate.mjs` in CI — runs `mcp-tool-improviser` across every tool and fails the build below a 7.0 floor (was a manually-run, unenforced signal before tonight). Every tool is ≥8.7 except `refactor-executor` (7.5, tracked follow-up — see its own section below for context on why it's the outlier).
+
+---
+
 ## 🟢 P0 ROOT CAUSE — shared project-context detection — ✅ FIXED
 
 Every generator/analyzer independently (and wrongly) guessed the target project's shape — where `cn` lives, whether a tsconfig exists up-tree, the token system, monorepo-ness. This one weakness caused a whole class of bugs across 5 tools.
