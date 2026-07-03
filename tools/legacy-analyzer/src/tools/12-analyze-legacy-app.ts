@@ -4,6 +4,7 @@
 // ============================================================================
 
 import * as path from 'path';
+import { detectMonorepo, hasRepoUiPackage } from '@mcp-showcase/shared';
 import { detectProjectTech } from './01-detect-project-tech.js';
 import { analyzeFolderStructure } from './02-analyze-folder-structure.js';
 import { analyzeComponents } from './03-analyze-components.js';
@@ -132,8 +133,11 @@ export async function analyzeLegacyApp(appPath: string, config?: Partial<Analyze
     });
   }
 
-  // UI package extraction
-  if (components.totalComponents > 10) {
+  // UI package extraction — only meaningful in an actual monorepo with a shared
+  // ui package; standalone repos have nowhere to extract components to.
+  const monorepo = detectMonorepo(appPath);
+  const hasRepoUi = monorepo.isMonorepo && hasRepoUiPackage(monorepo.workspaceRoot);
+  if (hasRepoUi && components.totalComponents > 10) {
     migrationHints.push({
       priority: 'medium',
       category: 'UI Package',

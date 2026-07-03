@@ -346,8 +346,11 @@ class MonorepoManagerServer extends McpServerBase {
   }
 
   private handleSyncConfig(args: unknown): Record<string, unknown> {
-    const a = args as { root?: string; configFile: string };
-    const root = a?.root ? path.resolve(a.root) : findMonorepoRoot(process.cwd());
+    const a = args as { root?: string; configFile?: string };
+    if (!a?.configFile || typeof a.configFile !== 'string') {
+      throw new Error('configFile is required');
+    }
+    const root = a.root ? path.resolve(a.root) : findMonorepoRoot(process.cwd());
     const configFile = a.configFile;
     const workspace = getWorkspaceInfo(root);
 

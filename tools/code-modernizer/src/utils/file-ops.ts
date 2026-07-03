@@ -6,6 +6,21 @@ import fs from 'fs-extra';
 import { readdir } from 'fs/promises';
 import * as path from 'path';
 
+/** Directories that hold generated/build/vendor output — never treat as project source. */
+const GENERATED_DIR_NAMES = [
+  'node_modules',
+  '.git',
+  'build',
+  'dist',
+  'coverage',
+  'out',
+  '.next',
+  '.turbo',
+  'playwright-report',
+  'test-results',
+  '.vercel',
+];
+
 export async function readFile(filePath: string): Promise<string | null> {
   try {
     return await fs.readFile(filePath, 'utf-8');
@@ -47,7 +62,7 @@ export async function listFiles(dirPath: string, extensions?: string[]): Promise
       for (const entry of entries) {
         const fullPath = path.join(currentPath, entry.name);
         if (entry.isDirectory()) {
-          if (!['node_modules', '.git', 'build', 'dist'].includes(entry.name)) {
+          if (!GENERATED_DIR_NAMES.includes(entry.name)) {
             await walk(fullPath);
           }
         } else if (entry.isFile()) {

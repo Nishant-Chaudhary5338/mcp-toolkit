@@ -75,6 +75,30 @@ describe('extractComponents', () => {
     expect(names).toContain('Header');
     expect(names).toContain('Footer');
   });
+
+  it('excludes SCREAMING_SNAKE_CASE data consts', () => {
+    const content = `
+      export const SORT_OPTIONS = [{ value: 'name', label: 'Name' }];
+      export const DEFAULT_FILTERS = { status: 'all' };
+    `;
+    const names = extractComponents(content);
+    expect(names).toHaveLength(0);
+  });
+
+  it('skips non-JSX (.ts) files when a file path is provided', () => {
+    const content = `
+      export const SORT_OPTIONS = [1, 2, 3];
+      export function activeFilterCount() { return 0; }
+    `;
+    const names = extractComponents(content, 'filters.ts');
+    expect(names).toHaveLength(0);
+  });
+
+  it('still detects components when a .tsx file path is provided', () => {
+    const content = `export function Header() { return <header />; }`;
+    const names = extractComponents(content, 'Header.tsx');
+    expect(names).toContain('Header');
+  });
 });
 
 describe('analyzeComponent — missing memo', () => {
@@ -111,6 +135,49 @@ describe('analyzeComponent — inline functions', () => {
     const profile = analyzeComponent(INLINE_FUNCTION, 'List', 'List.tsx');
     const fnIssues = profile.issues.filter(i => i.type === 'inline-function');
     expect(fnIssues.length).toBeGreaterThan(0);
+  });
+});
+
+const TWO_COMPONENTS_ONE_MEMOIZED = `
+import React from 'react';
+
+function HeaderCell({ label }: { label: string }) {
+  return <th>{label}</th>;
+}
+
+export const ContactsTable = React.memo(function ContactsTable({ items }: { items: string[] }) {
+  return (
+    <table>
+      <thead><tr><HeaderCell label="Name" /></tr></thead>
+      <tbody>
+        {items.map((item) => (
+          <tr onClick={() => console.log(item)}>{item}</tr>
+        ))}
+      </tbody>
+    </table>
+  );
+});
+`;
+
+describe('analyzeComponent — component boundaries', () => {
+  it('does not attribute a later component\'s issues to an earlier component', () => {
+    const headerCellProfile = analyzeComponent(TWO_COMPONENTS_ONE_MEMOIZED, 'HeaderCell', 'ContactsTable.tsx');
+    expect(headerCellProfile.issues.some(i => i.type === 'inline-function')).toBe(false);
+  });
+
+  it('attributes the inline function only to the component that owns it', () => {
+    const tableProfile = analyzeComponent(TWO_COMPONENTS_ONE_MEMOIZED, 'ContactsTable', 'ContactsTable.tsx');
+    expect(tableProfile.issues.some(i => i.type === 'inline-function')).toBe(true);
+  });
+
+  it('does not mark an unmemoized component as memoized because another component in the file uses React.memo', () => {
+    const headerCellProfile = analyzeComponent(TWO_COMPONENTS_ONE_MEMOIZED, 'HeaderCell', 'ContactsTable.tsx');
+    expect(headerCellProfile.hasMemo).toBe(false);
+  });
+
+  it('still detects React.memo on the component that actually uses it', () => {
+    const tableProfile = analyzeComponent(TWO_COMPONENTS_ONE_MEMOIZED, 'ContactsTable', 'ContactsTable.tsx');
+    expect(tableProfile.hasMemo).toBe(true);
   });
 });
 

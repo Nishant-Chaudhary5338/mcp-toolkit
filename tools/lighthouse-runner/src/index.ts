@@ -2,7 +2,7 @@
 import { McpServerBase, safeReadJson } from '@mcp-showcase/shared';
 import { renderReportHTML } from '@mcp-showcase/ui-kit';
 import { toHealthReport } from './health-report.js';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -42,11 +42,18 @@ interface LighthouseResult {
 // ============================================================================
 
 function runLighthouse(url: string, outputPath: string, categories: string[] = ['performance', 'accessibility', 'best-practices', 'seo']): LighthouseResult {
-  const categoryFlags = categories.map(c => `--only-categories=${c}`).join(' ');
-  const cmd = `npx lighthouse "${url}" --output=json --output-path="${outputPath}" ${categoryFlags} --chrome-flags="--headless --no-sandbox --disable-gpu" 2>&1 || true`;
+  // url and outputPath are direct MCP tool-call arguments — the double-quote
+  // wrapping here didn't escape embedded quotes/backticks/`$(...)`, so a
+  // crafted url or outputPath could break out of the shell string and inject
+  // commands (QA fuzz finding, the most directly reachable injection vector
+  // found this session — no crafted repo needed, just a malicious tool call).
+  // execFileSync passes each argument as a literal argv entry: no shell, no
+  // quoting to break.
+  const categoryFlags = categories.map((c) => `--only-categories=${c}`);
+  const argv = ['lighthouse', url, '--output=json', `--output-path=${outputPath}`, ...categoryFlags, '--chrome-flags=--headless --no-sandbox --disable-gpu'];
 
   try {
-    execSync(cmd, { encoding: 'utf-8', timeout: 120000, maxBuffer: 50 * 1024 * 1024 });
+    execFileSync('npx', argv, { encoding: 'utf-8', timeout: 120000, maxBuffer: 50 * 1024 * 1024 });
   } catch {
     // lighthouse may exit non-zero but still produce output
   }
@@ -127,7 +134,7 @@ export function analyzeHtmlFile(filePath: string): { score: number; issues: stri
     }
   }
 
-  if (content.match(/<script(?![^>]*defer)(?![^>]*async)[^>]*src=/)) {
+  if (content.match(/<script(?![^>]*defer)(?![^>]*async)(?![^>]*type=["']module["'])[^>]*src=/)) {
     issues.push('Render-blocking script without defer/async attribute');
     score -= 10;
   }

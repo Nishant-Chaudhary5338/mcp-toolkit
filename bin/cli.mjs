@@ -23,6 +23,48 @@ const TOOLS = [
   "monorepo-manager",
   "lighthouse-runner",
   "json-viewer",
+  "infer-fields",
+  "zod-schema-generator",
+  "api-client-generator",
+  "form-generator",
+  "table-generator",
+  "detail-generator",
+  "crud-composer",
+  "mcp-tool-factory",
+  "mcp-tool-improviser",
+  "fix-failing-tests",
+  "component-improver",
+  "refactor-executor",
+  "docs-generator",
+  "e2e-generator",
+  "playwright-scaffolder",
+  "visual-regression-setup",
+  "test-data-factory",
+  "barrel-generator",
+  "type-from-json",
+  "zustand-store-generator",
+  "svg-to-component",
+  "env-config-generator",
+  "states-scaffolder",
+  "i18n-extractor",
+  "form-wizard-generator",
+  "react-compiler-migrator",
+  "a11y-autofixer",
+  "codemod-runner",
+  "bundle-budget-guard",
+  "api-contract-differ",
+  "craconfig-analyzer",
+  "dependency-remapper",
+  "redux-state-analyzer",
+  "env-var-migrator",
+  "jest-to-vitest-migrator",
+  "vite-project-scaffolder",
+  "webpack-config-translator",
+  "cra-to-vite",
+  "review-gate",
+  "workflow-runner",
+  "msw-mock-generator",
+  "enforce-design-tokens",
 ];
 
 const requested = process.argv[2];
@@ -30,7 +72,7 @@ const requested = process.argv[2];
 if (!requested || requested === "--list" || requested === "-l" || requested === "list") {
   const lines = TOOLS.map((t) => `  • ${t}`).join("\n");
   process.stdout.write(
-    `mcp-react-toolkit — 17 MCP servers for React + TypeScript\n\n` +
+    `mcp-react-toolkit — 59 MCP servers for React + TypeScript\n\n` +
       `Usage:\n  npx mcp-react-toolkit <tool>\n\nAvailable tools:\n${lines}\n\n` +
       `Add one to Claude Desktop / Cursor:\n` +
       `  "legacy-analyzer": { "command": "npx", "args": ["-y", "mcp-react-toolkit", "legacy-analyzer"] }\n`,
@@ -40,7 +82,7 @@ if (!requested || requested === "--list" || requested === "-l" || requested === 
 
 if (!TOOLS.includes(requested)) {
   process.stderr.write(
-    `Unknown tool: "${requested}".\nRun \`npx mcp-react-toolkit --list\` to see all 17 tools.\n`,
+    `Unknown tool: "${requested}".\nRun \`npx mcp-react-toolkit --list\` to see all 59 tools.\n`,
   );
   process.exit(1);
 }

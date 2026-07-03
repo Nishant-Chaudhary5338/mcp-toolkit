@@ -6,8 +6,26 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
 
+/** Conventional roots that may each hold real source code, independent of one another. */
+const CONVENTIONAL_SOURCE_DIRS = ['src', 'app', 'pages', 'components', 'lib'];
+
+/** Directories that hold generated/build output rather than source — never scan these. */
+const GENERATED_DIR_IGNORES = [
+  '**/node_modules/**',
+  '**/build/**',
+  '**/dist/**',
+  '**/.git/**',
+  '**/coverage/**',
+  '**/out/**',
+  '**/.next/**',
+  '**/.turbo/**',
+  '**/playwright-report/**',
+  '**/test-results/**',
+  '**/.vercel/**',
+];
+
 /**
- * Resolve the best source directory for a given app root.
+ * Resolve the best (single) source directory for a given app root.
  * Handles CRA/Vite (src/), Next.js app router (app/), Next.js pages router (pages/),
  * and apps where source is at root level.
  */
@@ -28,29 +46,43 @@ export function resolveSourceDir(appPath: string): string {
 }
 
 /**
- * Find all JS/JSX/TS/TSX files in a directory
+ * Resolve ALL conventional source roots that actually exist for an app root.
+ * Next.js apps commonly split code across app/ (routes) + components/ + lib/,
+ * which resolveSourceDir alone would miss since it only returns one directory.
  */
-export async function findSourceFiles(rootDir: string): Promise<string[]> {
+export function resolveSourceDirs(appPath: string): string[] {
+  const dirs: string[] = [];
+  for (const candidate of CONVENTIONAL_SOURCE_DIRS) {
+    const dir = path.join(appPath, candidate);
+    if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+      const entries = fs.readdirSync(dir);
+      if (entries.some((e) => /\.(tsx?|jsx?)$/.test(e) || fs.statSync(path.join(dir, e)).isDirectory())) {
+        dirs.push(dir);
+      }
+    }
+  }
+  return dirs.length > 0 ? dirs : [path.join(appPath, 'src')];
+}
+
+/**
+ * Find all JS/JSX/TS/TSX files in a directory, or the union of several directories.
+ */
+export async function findSourceFiles(rootDir: string | string[]): Promise<string[]> {
   const patterns = ['**/*.{js,jsx,ts,tsx}'];
   const ignore = [
-    '**/node_modules/**',
-    '**/build/**',
-    '**/dist/**',
-    '**/.git/**',
-    '**/coverage/**',
+    ...GENERATED_DIR_IGNORES,
     '**/*.test.{js,jsx,ts,tsx}',
     '**/*.spec.{js,jsx,ts,tsx}',
     '**/*.stories.{js,jsx,ts,tsx}',
     '**/*.d.ts',
   ];
 
-  const files = await glob(patterns, {
-    cwd: rootDir,
-    ignore,
-    absolute: true,
-  });
+  const roots = Array.isArray(rootDir) ? rootDir : [rootDir];
+  const results = await Promise.all(
+    roots.map((root) => glob(patterns, { cwd: root, ignore, absolute: true }))
+  );
 
-  return files.sort();
+  return Array.from(new Set(results.flat())).sort();
 }
 
 /**
@@ -70,11 +102,10 @@ export async function findComponentFiles(rootDir: string): Promise<string[]> {
  */
 export async function findStyleFiles(rootDir: string): Promise<string[]> {
   const patterns = ['**/*.{css,scss,less,sass,module.css,module.scss}'];
-  const ignore = ['**/node_modules/**', '**/build/**', '**/dist/**'];
 
   return glob(patterns, {
     cwd: rootDir,
-    ignore,
+    ignore: GENERATED_DIR_IGNORES,
     absolute: true,
   });
 }
@@ -88,11 +119,10 @@ export async function findAssetFiles(rootDir: string): Promise<string[]> {
     '**/*.{mp4,webm,ogg,avi,mov}',
     '**/*.{woff,woff2,ttf,eot,otf}',
   ];
-  const ignore = ['**/node_modules/**', '**/build/**', '**/dist/**'];
 
   return glob(patterns, {
     cwd: rootDir,
-    ignore,
+    ignore: GENERATED_DIR_IGNORES,
     absolute: true,
   });
 }

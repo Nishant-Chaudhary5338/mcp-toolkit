@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { McpServerBase, safeReadJson, safeReadFile } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadJson, safeReadFile, detectMonorepo, findUp } from '@mcp-showcase/shared';
 import { renderReportHTML } from '@mcp-showcase/ui-kit';
 import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 // ============================================================================
 // TYPES
@@ -26,18 +26,31 @@ interface MonorepoPackage {
 // HELPERS
 // ============================================================================
 
+/**
+ * A non-existent/empty root previously fell through getAllPackages' "no
+ * workspace packages found" path silently, returning packagesAudited:0 with
+ * success:true — indistinguishable from "audited 0 packages, found nothing
+ * to flag" (QA session 2 finding). Every tool handler checks this first.
+ */
+export function rootExistsError(root: string): string | null {
+  return fs.existsSync(root) ? null : `Path does not exist: ${root}`;
+}
+
 export function findMonorepoRoot(startDir: string): string {
+  const { isMonorepo, workspaceRoot } = detectMonorepo(startDir);
+  if (isMonorepo && workspaceRoot) return workspaceRoot;
+
   let dir = startDir;
   while (dir !== path.dirname(dir)) {
-    if (
-      fs.existsSync(path.join(dir, 'pnpm-workspace.yaml')) ||
-      fs.existsSync(path.join(dir, 'turbo.json'))
-    ) {
-      return dir;
-    }
+    if (fs.existsSync(path.join(dir, 'turbo.json'))) return dir;
     dir = path.dirname(dir);
   }
-  throw new Error('No monorepo root found (no pnpm-workspace.yaml or turbo.json)');
+
+  // Standalone (non-monorepo) package: treat the nearest package.json dir as root.
+  const pkgJsonPath = findUp(startDir, 'package.json');
+  if (pkgJsonPath) return path.dirname(pkgJsonPath);
+
+  throw new Error('No monorepo root found (no pnpm-workspace.yaml, npm workspaces, turbo.json, or package.json)');
 }
 
 export function readWorkspacePatterns(root: string): string[] {
@@ -135,7 +148,9 @@ export function scanSourceFiles(
 
 export function extractImports(content: string): string[] {
   const imports: string[] = [];
-  for (const m of content.matchAll(/import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+)?['"]([^'"]+)['"]/g)) {
+  for (const m of content.matchAll(
+    /import\s+(?:(?:(?:\w+\s*,\s*)?(?:\{[^}]*\}|\*\s+as\s+\w+)|\w+)\s+from\s+)?['"]([^'"]+)['"]/g,
+  )) {
     imports.push(m[1]);
   }
   for (const m of content.matchAll(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
@@ -151,6 +166,64 @@ export function getExternalPackageName(importPath: string): string | null {
     return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : importPath;
   }
   return importPath.split('/')[0];
+}
+
+const PACKAGE_SCAN_SKIP = new Set([
+  'node_modules', 'build', 'dist', '.next', '.turbo', '.git',
+  'coverage', 'out', 'playwright-report', 'test-results',
+]);
+
+/**
+ * Scans an entire package directory (config files, tests, CSS included) —
+ * unlike scanSourceFiles this deliberately does NOT stop at src/ or drop
+ * test/spec/stories files, since those are all legitimate places a
+ * dependency can be referenced (eslint.config.js, vitest.config.ts, *.css).
+ */
+export function scanPackageFiles(
+  dir: string,
+  exts: string[] = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css'],
+): string[] {
+  const files: string[] = [];
+  if (!fs.existsSync(dir)) return files;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (PACKAGE_SCAN_SKIP.has(entry.name)) continue;
+      files.push(...scanPackageFiles(fullPath, exts));
+    } else if (exts.some(e => entry.name.endsWith(e))) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
+/**
+ * Dependency names referenced by a file, beyond plain imports: CSS
+ * `@import`/`@plugin` directives, and the vitest `environment`/coverage
+ * `provider` config keys (whose string values name a package indirectly,
+ * e.g. provider: 'v8' -> @vitest/coverage-v8).
+ */
+export function extractUsedDepsFromFile(filePath: string, content: string): string[] {
+  const used: string[] = [];
+  if (filePath.endsWith('.css')) {
+    for (const m of content.matchAll(/@(?:import|plugin)\s+['"]([^'"]+)['"]/g)) {
+      const name = getExternalPackageName(m[1]);
+      if (name) used.push(name);
+    }
+    return used;
+  }
+  for (const imp of extractImports(content)) {
+    const name = getExternalPackageName(imp);
+    if (name) used.push(name);
+  }
+  for (const m of content.matchAll(/\benvironment\s*:\s*['"]([^'"]+)['"]/g)) {
+    used.push(m[1]);
+  }
+  for (const m of content.matchAll(/\bprovider\s*:\s*['"]([^'"]+)['"]/g)) {
+    used.push(`@vitest/coverage-${m[1]}`);
+  }
+  return used;
 }
 
 const TOOLING_DEPS = new Set([
@@ -183,6 +256,11 @@ class DepAuditorServer extends McpServerBase {
           package?: string;
         };
         const root = rootArg ? path.resolve(rootArg) : findMonorepoRoot(process.cwd());
+        // A non-existent/empty root silently produced packagesAudited:0 with
+        // success:true, indistinguishable from "audited 0 packages because
+        // there's nothing to flag" — QA session 2 flagged this as too lenient.
+        const rootErr = rootExistsError(root);
+        if (rootErr) return this.error(new Error(rootErr));
         const packages = getAllPackages(root);
         const filtered = targetPkg ? packages.filter(p => p.name === targetPkg) : packages;
 
@@ -193,10 +271,9 @@ class DepAuditorServer extends McpServerBase {
             ...Object.keys(pkg.pkg.devDependencies ?? {}),
           ]);
           const usedDeps = new Set<string>();
-          for (const file of scanSourceFiles(path.join(pkg.path, 'src'))) {
-            for (const imp of extractImports(safeReadFile(file) ?? '')) {
-              const ext = getExternalPackageName(imp);
-              if (ext) usedDeps.add(ext);
+          for (const file of scanPackageFiles(pkg.path)) {
+            for (const dep of extractUsedDepsFromFile(file, safeReadFile(file) ?? '')) {
+              usedDeps.add(dep);
             }
           }
           const unused = [...declaredDeps].filter(
@@ -227,6 +304,11 @@ class DepAuditorServer extends McpServerBase {
       async (args) => {
         const { root: rootArg } = (args ?? {}) as { root?: string };
         const root = rootArg ? path.resolve(rootArg) : findMonorepoRoot(process.cwd());
+        // A non-existent/empty root silently produced packagesAudited:0 with
+        // success:true, indistinguishable from "audited 0 packages because
+        // there's nothing to flag" — QA session 2 flagged this as too lenient.
+        const rootErr = rootExistsError(root);
+        if (rootErr) return this.error(new Error(rootErr));
         const packages = getAllPackages(root);
 
         const depVersions = new Map<string, Map<string, string[]>>();
@@ -276,6 +358,11 @@ class DepAuditorServer extends McpServerBase {
           package?: string;
         };
         const root = rootArg ? path.resolve(rootArg) : findMonorepoRoot(process.cwd());
+        // A non-existent/empty root silently produced packagesAudited:0 with
+        // success:true, indistinguishable from "audited 0 packages because
+        // there's nothing to flag" — QA session 2 flagged this as too lenient.
+        const rootErr = rootExistsError(root);
+        if (rootErr) return this.error(new Error(rootErr));
         const packages = getAllPackages(root);
         const filtered = targetPkg ? packages.filter(p => p.name === targetPkg) : packages;
 
@@ -284,8 +371,14 @@ class DepAuditorServer extends McpServerBase {
           const allDeps = { ...pkg.pkg.dependencies, ...pkg.pkg.devDependencies };
           for (const [dep, declared] of Object.entries(allDeps)) {
             try {
-              const latestVersion = execSync(`npm view ${dep} version 2>/dev/null`, {
-                encoding: 'utf-8', timeout: 10000,
+              // `dep` is a dependency-name key read straight from the scanned
+              // repo's package.json — untrusted input if the repo being audited
+              // isn't your own. execFileSync passes it as a literal argv entry
+              // (no shell), closing the command-injection vector execSync's
+              // string interpolation opened (QA fuzz finding: a crafted
+              // dependency name like `foo; rm -rf ~` would otherwise execute).
+              const latestVersion = execFileSync('npm', ['view', dep, 'version'], {
+                encoding: 'utf-8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'],
               }).trim();
               const cleanDeclared = declared.replace(/[^0-9.]/g, '');
               if (latestVersion && cleanDeclared !== latestVersion) {
@@ -328,6 +421,11 @@ class DepAuditorServer extends McpServerBase {
       async (args) => {
         const { root: rootArg } = (args ?? {}) as { root?: string };
         const root = rootArg ? path.resolve(rootArg) : findMonorepoRoot(process.cwd());
+        // A non-existent/empty root silently produced packagesAudited:0 with
+        // success:true, indistinguishable from "audited 0 packages because
+        // there's nothing to flag" — QA session 2 flagged this as too lenient.
+        const rootErr = rootExistsError(root);
+        if (rootErr) return this.error(new Error(rootErr));
         const packages = getAllPackages(root);
 
         const analysis = packages.map(pkg => {

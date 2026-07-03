@@ -2,7 +2,14 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { findMonorepoRoot, expandGlob, getPackageInfo, getDependencyGraph, findDependents } from './utils.js';
+import {
+  findMonorepoRoot,
+  readWorkspaceConfig,
+  expandGlob,
+  getPackageInfo,
+  getDependencyGraph,
+  findDependents,
+} from './utils.js';
 import type { PackageInfo } from './types.js';
 
 let tmpDirs: string[] = [];
@@ -41,6 +48,32 @@ describe('findMonorepoRoot', () => {
   it('throws when no root found', () => {
     const isolated = makeTmpDir();
     expect(() => findMonorepoRoot(isolated)).toThrow('No monorepo root found');
+  });
+});
+
+describe('readWorkspaceConfig', () => {
+  it('reads npm workspaces array from package.json when no pnpm-workspace.yaml exists', () => {
+    const root = makeTmpDir();
+    writeJson(path.join(root, 'package.json'), { workspaces: ['tools/shared', 'tools/dep-auditor'] });
+    expect(readWorkspaceConfig(root)).toEqual(['tools/shared', 'tools/dep-auditor']);
+  });
+
+  it('reads npm workspaces object form ({ packages: [...] })', () => {
+    const root = makeTmpDir();
+    writeJson(path.join(root, 'package.json'), { workspaces: { packages: ['apps/*', 'packages/*'] } });
+    expect(readWorkspaceConfig(root)).toEqual(['apps/*', 'packages/*']);
+  });
+
+  it('falls back to the hardcoded globs when no workspace config exists', () => {
+    const root = makeTmpDir();
+    expect(readWorkspaceConfig(root)).toEqual(['apps/*', 'packages/*', 'tools/*']);
+  });
+
+  it('prefers pnpm-workspace.yaml over an npm workspaces field', () => {
+    const root = makeTmpDir();
+    fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "libs/*"\n');
+    writeJson(path.join(root, 'package.json'), { workspaces: ['tools/*'] });
+    expect(readWorkspaceConfig(root)).toEqual(['libs/*']);
   });
 });
 

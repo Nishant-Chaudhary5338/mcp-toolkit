@@ -62,6 +62,36 @@ describe('aria-roles rule', () => {
     const issues = analyzeFile('test.tsx', '<div role="dialog">Content</div>');
     expect(issues.some(i => i.rule === 'aria-roles')).toBe(false);
   });
+
+  it('passes role="meter" (valid WAI-ARIA 1.2 role)', () => {
+    const issues = analyzeFile(
+      'test.tsx',
+      '<div role="meter" aria-valuenow={50} aria-valuemin={0} aria-valuemax={100}>Content</div>'
+    );
+    expect(issues.some(i => i.rule === 'aria-roles')).toBe(false);
+  });
+
+  it('still flags a genuinely bogus role', () => {
+    const issues = analyzeFile('test.tsx', '<div role="notarole">Content</div>');
+    expect(issues.some(i => i.rule === 'aria-roles')).toBe(true);
+  });
+});
+
+describe('label rule', () => {
+  it('flags a bare input with no label and no prop spread', () => {
+    const issues = analyzeFile('test.tsx', '<input type="text" placeholder="foo" />');
+    expect(issues.some(i => i.rule === 'label')).toBe(true);
+  });
+
+  it('does not hard-flag an input that spreads {...props} (label may arrive via props)', () => {
+    const issues = analyzeFile('test.tsx', '<input ref={ref} type="text" className="x" {...props} />');
+    expect(issues.some(i => i.rule === 'label')).toBe(false);
+  });
+
+  it('passes an input with a literal id', () => {
+    const issues = analyzeFile('test.tsx', '<input id="phone" type="text" />');
+    expect(issues.some(i => i.rule === 'label')).toBe(false);
+  });
 });
 
 describe('heading-order rule', () => {

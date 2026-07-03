@@ -5,19 +5,20 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { findSourceFiles, resolveSourceDir } from '../utils/file-scanner.js';
+import { findSourceFiles, resolveSourceDirs } from '../utils/file-scanner.js';
 import { analyzeComponent } from '../utils/ast-parser.js';
 import { DEFAULT_CONFIG } from '../types.js';
 import type { AnalyzeComponentsOutput, ComponentInfo, AnalyzerConfig } from '../types.js';
 
 export async function analyzeComponents(appPath: string, config?: Partial<AnalyzerConfig>): Promise<AnalyzeComponentsOutput> {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
-  const srcPath = resolveSourceDir(appPath);
-  const files = await findSourceFiles(srcPath);
+  const srcPaths = resolveSourceDirs(appPath);
+  const files = await findSourceFiles(srcPaths);
 
   // Include all JS/JSX/TS/TSX files — apps like CRA use lowercase App.js or index.js
   const componentFiles = files;
 
+  let totalComponents = 0;
   const largeComponents: ComponentInfo[] = [];
   const complexComponents: ComponentInfo[] = [];
 
@@ -71,9 +72,21 @@ export async function analyzeComponents(appPath: string, config?: Partial<Analyz
       responsibilities,
     };
 
-    // Skip non-component files (no JSX, no hooks, not enough evidence)
-    const isLikelyComponent = jsxTagCount > 0 || hasState || hasEffect || content.includes('return (') || content.includes('return(');
+    // Skip non-component files (no JSX, no hooks, not enough evidence).
+    // Plain .ts files can never contain JSX (TypeScript rejects JSX syntax
+    // outside .tsx/.jsx), so the content-based regexes below are unreliable
+    // there — generics like `Record<string, X>` and comparisons like `a < b`
+    // false-match the JSX tag regex, and `return (a, b) => …` false-matches
+    // the return-paren check. Trust only the AST's real JSX node count for
+    // those files; keep the looser heuristics for .tsx/.jsx (and plain .js,
+    // since CRA-era apps put JSX in .js).
+    const isPlainTs = path.extname(file) === '.ts';
+    const isLikelyComponent = isPlainTs
+      ? astJsxCount > 0
+      : astJsxCount > 0 || jsxTagCount > 0 || content.includes('return (') || content.includes('return(');
     if (!isLikelyComponent) continue;
+
+    totalComponents++;
 
     if (lines > mergedConfig.largeComponentLines) {
       largeComponents.push(componentInfo);
@@ -90,7 +103,7 @@ export async function analyzeComponents(appPath: string, config?: Partial<Analyz
   }
 
   return {
-    totalComponents: componentFiles.length,
+    totalComponents,
     largeComponents: largeComponents.sort((a, b) => b.lines - a.lines),
     complexComponents: complexComponents.sort((a, b) => b.responsibilities.length - a.responsibilities.length),
   };

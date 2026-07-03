@@ -39,6 +39,20 @@ describe('analyzeTypeScript', () => {
     const issues = analyzeTypeScript(code, lines(code));
     expect(issues.some(i => i.category === 'type-safety')).toBe(true);
   });
+
+  it('does not flag namespace imports as type assertions', () => {
+    const code = `import * as RadixSwitch from '@radix-ui/react-switch';`;
+    const issues = analyzeTypeScript(code, lines(code));
+    const assertionIssues = issues.filter(i => i.message?.includes('Type assertion'));
+    expect(assertionIssues).toHaveLength(0);
+  });
+
+  it('does not flag export aliases as type assertions', () => {
+    const code = `export { Foo as Bar } from './foo';`;
+    const issues = analyzeTypeScript(code, lines(code));
+    const assertionIssues = issues.filter(i => i.message?.includes('Type assertion'));
+    expect(assertionIssues).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -76,6 +90,28 @@ describe('analyzeReactPatterns', () => {
     const issues = analyzeReactPatterns(code, lines(code), 'Form');
     const inlineIssues = issues.filter(i => i.message?.includes('inline'));
     expect(inlineIssues).toHaveLength(0);
+  });
+
+  it('does not flag missing displayName on a plain named function component', () => {
+    const code = `
+      export function PhoneInput({ value }: { value: string }) {
+        return <input value={value} />;
+      }
+    `;
+    const issues = analyzeReactPatterns(code, lines(code), 'PhoneInput');
+    const displayNameIssues = issues.filter(i => i.message?.includes('displayName'));
+    expect(displayNameIssues).toHaveLength(0);
+  });
+
+  it('flags missing displayName on a forwardRef component', () => {
+    const code = `
+      export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch(props, ref) {
+        return <button ref={ref} {...props} />;
+      });
+    `;
+    const issues = analyzeReactPatterns(code, lines(code), 'Switch');
+    const displayNameIssues = issues.filter(i => i.message?.includes('displayName'));
+    expect(displayNameIssues).toHaveLength(1);
   });
 });
 

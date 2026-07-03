@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import { McpServerBase, safeReadJson, isNextJsProject } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadJson, isNextJsProject, resolveCnImport, detectTokenSystem, findPackageRoot } from '@mcp-showcase/shared';
 import type { ToolResult } from '@mcp-showcase/shared';
 import { renderResultHTML } from '@mcp-showcase/ui-kit';
 import { toResultReport } from './result-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -24,17 +24,38 @@ import { validateComponentName } from './utils.js';
 // TEMPLATE READER
 // ============================================================================
 
-function readTemplate(componentName: string): string {
+function readTemplate(componentName: string, targetFile: string): string {
   const templatePath = path.join(TEMPLATES_DIR, `${componentName}.tsx`);
   if (!fs.existsSync(templatePath)) {
     throw new Error(`Template not found: ${componentName}. Available: ${getAvailableTemplates().join(', ')}`);
   }
   const content = fs.readFileSync(templatePath, 'utf-8');
-  // Fix @/lib/utils import for standalone use
+  // Rewrite the shadcn `@/lib/utils` cn import to whatever the TARGET project
+  // actually uses — resolved from the real output file location (its own alias,
+  // an existing cn util, or a correctly-nested relative path). The old code
+  // hardcoded `../../lib/utils`, which resolved to the wrong dir for the
+  // Name/Name.tsx layout this tool creates.
+  const { importSpecifier } = resolveCnImport(targetFile);
   return content.replace(
     /import\s+\{?\s*cn\s*\}?\s+from\s+["']@\/lib\/utils["']/g,
-    'import { cn } from "../../lib/utils"'
+    `import { cn } from "${importSpecifier}"`
   );
+}
+
+/** Bare (non-relative, non-alias) package imports a template needs installed. */
+function extractPeerDeps(templateContent: string): string[] {
+  const deps = new Set<string>();
+  const builtIn = new Set(['react', 'react-dom']);
+  for (const m of templateContent.matchAll(/from\s+["']([^"']+)["']/g)) {
+    const spec = m[1];
+    if (spec.startsWith('.') || spec.startsWith('@/') || builtIn.has(spec)) continue;
+    // normalize scoped/deep imports to the installable package name
+    const pkg = spec.startsWith('@')
+      ? spec.split('/').slice(0, 2).join('/')
+      : spec.split('/')[0];
+    deps.add(pkg);
+  }
+  return [...deps];
 }
 
 function getAvailableTemplates(): string[] {
@@ -115,7 +136,10 @@ function runTypeScriptCheck(componentDir: string): { errors: string[], passed: b
   try {
     const tsconfig = findTsconfig(componentDir);
     if (!tsconfig) return { errors: ['No tsconfig.json found'], passed: false };
-    execSync(`npx tsc --noEmit --project ${tsconfig}`, { cwd: componentDir, stdio: 'pipe', timeout: 30000 });
+    // tsconfig is built from componentDir, which is caller-controlled input —
+    // execFileSync passes it as a literal argv entry (no shell), avoiding the
+    // injection risk of interpolating an untrusted path into a shell string.
+    execFileSync('npx', ['tsc', '--noEmit', '--project', tsconfig], { cwd: componentDir, stdio: 'pipe', timeout: 30000 });
     return { errors: [], passed: true };
   } catch (error: unknown) {
     const err = error as { stdout?: { toString(): string }; stderr?: { toString(): string }; message: string };
@@ -149,7 +173,7 @@ function findTsconfig(dir: string): string | null {
 // MAIN SERVER CLASS
 // ============================================================================
 
-class ComponentFactoryServer extends McpServerBase {
+export class ComponentFactoryServer extends McpServerBase {
   constructor() {
     super({ name: 'component-factory', version: '2.0.0' });
   }
@@ -265,9 +289,11 @@ class ComponentFactoryServer extends McpServerBase {
 
     try {
       const componentName = name.toLowerCase();
-      const templateContent = readTemplate(componentName);
       const componentDir = path.join(outputPath, name);
       const resolvedDir = path.resolve(componentDir);
+      const componentFileAbs = path.join(resolvedDir, `${name}.tsx`);
+      // Resolve the cn import against the REAL output location before rendering.
+      const templateContent = readTemplate(componentName, componentFileAbs);
 
       // Prevent writes to dangerous root paths
       const dangerousRoots = ['/', '/Users', '/home', '/etc', '/usr', '/var', '/tmp'];
@@ -315,12 +341,32 @@ class ComponentFactoryServer extends McpServerBase {
       fs.writeFileSync(indexPath, generateIndexCode(name));
       files.push(indexPath);
 
+      // Surface peer deps + token-system caveats so the output is drop-in usable.
+      const dependencies = extractPeerDeps(templateContent);
+      const cnInfo = resolveCnImport(componentFileAbs);
+      const projectRoot = findPackageRoot(resolvedDir);
+      const tokenSystem = projectRoot ? detectTokenSystem(projectRoot) : 'none';
+      const warnings: string[] = [];
+      if (dependencies.length) {
+        warnings.push(`Install peer deps: npm install ${dependencies.join(' ')}`);
+      }
+      if (cnInfo.needsCreation) {
+        warnings.push(`No \`cn\` util found — create ${cnInfo.importSpecifier} (clsx + tailwind-merge) or the import won't resolve.`);
+      }
+      if (tokenSystem !== 'shadcn') {
+        warnings.push(`This template uses shadcn design tokens (bg-primary, *-foreground). Detected token system: "${tokenSystem}". Map these to your tokens or add a shadcn-compatible token layer, or the component will render unstyled.`);
+      }
+
       const result = {
         componentName: name,
         outputDirectory: componentDir,
         source: 'shadcn/ui template',
         filesGenerated: files.length,
         files,
+        dependencies,
+        cnImport: cnInfo.importSpecifier,
+        tokenSystem,
+        warnings,
         message: `Successfully generated ${name} component with ${files.length} files`,
       };
       return this.successWithUI(result as unknown as Record<string, unknown>, {
@@ -409,136 +455,149 @@ class ComponentFactoryServer extends McpServerBase {
 
   private async handleReviewComponent(args: unknown): Promise<ToolResult> {
     const { path: componentPath } = args as { path: string };
-    if (!fs.existsSync(componentPath)) throw new Error(`Component path does not exist: ${componentPath}`);
+    try {
+      if (!fs.existsSync(componentPath)) throw new Error(`Component path does not exist: ${componentPath}`);
 
-    const componentName = path.basename(componentPath);
-    const tsResult = runTypeScriptCheck(componentPath);
-    const a11yIssues = checkAccessibility(componentPath, componentName);
+      const componentName = path.basename(componentPath);
+      const tsResult = runTypeScriptCheck(componentPath);
+      const a11yIssues = checkAccessibility(componentPath, componentName);
 
-    // Grade calculation
-    let score = 100;
-    if (!tsResult.passed) score -= 30;
-    score -= Math.min(a11yIssues.length * 10, 30);
-    const grade = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F';
+      // Grade calculation
+      let score = 100;
+      if (!tsResult.passed) score -= 30;
+      score -= Math.min(a11yIssues.length * 10, 30);
+      const grade = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F';
 
-    const suggestions: string[] = [];
-    if (!tsResult.passed) suggestions.push('Fix TypeScript compilation errors');
-    if (a11yIssues.length > 0) suggestions.push('Address accessibility issues');
+      const suggestions: string[] = [];
+      if (!tsResult.passed) suggestions.push('Fix TypeScript compilation errors');
+      if (a11yIssues.length > 0) suggestions.push('Address accessibility issues');
 
-    return this.success({
-      component: componentName,
-      grade,
-      score,
-      typescriptErrors: tsResult.errors,
-      accessibilityIssues: a11yIssues,
-      suggestions,
-      summary: score >= 75 ? 'Good quality component' : 'Needs improvement',
-    });
+      return this.success({
+        component: componentName,
+        grade,
+        score,
+        typescriptErrors: tsResult.errors,
+        accessibilityIssues: a11yIssues,
+        suggestions,
+        summary: score >= 75 ? 'Good quality component' : 'Needs improvement',
+      });
+    } catch (error) {
+      return this.error(error);
+    }
   }
 
   private async handleFixComponent(args: unknown): Promise<ToolResult> {
     const { path: componentPath } = args as { path: string };
-    if (!fs.existsSync(componentPath)) throw new Error(`Component path does not exist: ${componentPath}`);
+    try {
+      if (!fs.existsSync(componentPath)) throw new Error(`Component path does not exist: ${componentPath}`);
 
-    const componentName = path.basename(componentPath);
-    const mainFile = path.join(componentPath, `${componentName}.tsx`);
-    const fixed: string[] = [];
-    const remaining: string[] = [];
+      const componentName = path.basename(componentPath);
+      const mainFile = path.join(componentPath, `${componentName}.tsx`);
+      const fixed: string[] = [];
+      const remaining: string[] = [];
 
-    if (!fs.existsSync(mainFile)) {
-      remaining.push('Component .tsx file not found');
-      return this.success({ component: componentName, fixed, remaining });
+      if (!fs.existsSync(mainFile)) {
+        remaining.push('Component .tsx file not found');
+        return this.success({ component: componentName, fixed, remaining });
+      }
+
+      let content = fs.readFileSync(mainFile, 'utf-8');
+      let modified = false;
+
+      // Fix @/lib/utils import paths — resolve to the project's real cn util.
+      if (content.includes('@/lib/utils')) {
+        const { importSpecifier } = resolveCnImport(mainFile);
+        content = content.replace(
+          /import\s+\{?\s*cn\s*\}?\s+from\s+["']@\/lib\/utils["']/g,
+          `import { cn } from "${importSpecifier}"`
+        );
+        fixed.push(`Fixed cn import → ${importSpecifier}`);
+        modified = true;
+      }
+
+      // Fix @/components/* imports
+      if (content.match(/from\s+["']@\/components\//)) {
+        content = content.replace(/from\s+["']@\/components\//g, 'from "../../components/');
+        fixed.push('Fixed @/components/* imports → relative paths');
+        modified = true;
+      }
+
+      // Add missing displayName (only for forwardRef components without it)
+      if (content.includes('React.forwardRef') && !content.includes('.displayName')) {
+        content = content + `\n${componentName}.displayName = '${componentName}';\n`;
+        fixed.push(`Added ${componentName}.displayName`);
+        modified = true;
+      }
+
+      if (modified) {
+        fs.writeFileSync(mainFile, content);
+      } else {
+        remaining.push('No auto-fixable issues found');
+      }
+
+      // Re-run review after fixes
+      const tsResult = runTypeScriptCheck(componentPath);
+      const a11yIssues = checkAccessibility(componentPath, componentName);
+
+      return this.success({
+        component: componentName,
+        fixed,
+        remaining,
+        afterFix: {
+          typescriptPassed: tsResult.passed,
+          accessibilityIssues: a11yIssues,
+        },
+        message: fixed.length > 0 ? `Applied ${fixed.length} fix(es)` : 'No changes needed',
+      });
+    } catch (error) {
+      return this.error(error);
     }
-
-    let content = fs.readFileSync(mainFile, 'utf-8');
-    let modified = false;
-
-    // Fix @/lib/utils import paths
-    if (content.includes('@/lib/utils')) {
-      content = content.replace(
-        /import\s+\{?\s*cn\s*\}?\s+from\s+["']@\/lib\/utils["']/g,
-        'import { cn } from "../../lib/utils"'
-      );
-      fixed.push('Fixed @/lib/utils import → relative path');
-      modified = true;
-    }
-
-    // Fix @/components/* imports
-    if (content.match(/from\s+["']@\/components\//)) {
-      content = content.replace(/from\s+["']@\/components\//g, 'from "../../components/');
-      fixed.push('Fixed @/components/* imports → relative paths');
-      modified = true;
-    }
-
-    // Add missing displayName (only for forwardRef components without it)
-    if (content.includes('React.forwardRef') && !content.includes('.displayName')) {
-      content = content + `\n${componentName}.displayName = '${componentName}';\n`;
-      fixed.push(`Added ${componentName}.displayName`);
-      modified = true;
-    }
-
-    if (modified) {
-      fs.writeFileSync(mainFile, content);
-    } else {
-      remaining.push('No auto-fixable issues found');
-    }
-
-    // Re-run review after fixes
-    const tsResult = runTypeScriptCheck(componentPath);
-    const a11yIssues = checkAccessibility(componentPath, componentName);
-
-    return this.success({
-      component: componentName,
-      fixed,
-      remaining,
-      afterFix: {
-        typescriptPassed: tsResult.passed,
-        accessibilityIssues: a11yIssues,
-      },
-      message: fixed.length > 0 ? `Applied ${fixed.length} fix(es)` : 'No changes needed',
-    });
   }
 
   private async handleImproveComponent(args: unknown): Promise<ToolResult> {
     const { path: componentPath } = args as { path: string };
-    if (!fs.existsSync(componentPath)) throw new Error(`Component path does not exist: ${componentPath}`);
+    try {
+      if (!fs.existsSync(componentPath)) throw new Error(`Component path does not exist: ${componentPath}`);
 
-    const componentName = path.basename(componentPath);
-    const enhanced: string[] = [];
+      const componentName = path.basename(componentPath);
+      const enhanced: string[] = [];
 
-    // Read actual component for context-aware improvements
-    const componentFile = path.join(componentPath, `${componentName}.tsx`);
-    const templateContent = fs.existsSync(componentFile) ? fs.readFileSync(componentFile, 'utf-8') : '';
+      // Read actual component for context-aware improvements
+      const componentFile = path.join(componentPath, `${componentName}.tsx`);
+      const templateContent = fs.existsSync(componentFile) ? fs.readFileSync(componentFile, 'utf-8') : '';
 
-    // Improve test file
-    const testFile = path.join(componentPath, `${componentName}.test.tsx`);
-    if (fs.existsSync(testFile)) {
-      const improvedTests = generateExtendedTestCode(componentName, templateContent);
-      fs.writeFileSync(testFile, improvedTests);
-      enhanced.push('Updated tests with edge cases and event handling');
+      // Improve test file
+      const testFile = path.join(componentPath, `${componentName}.test.tsx`);
+      if (fs.existsSync(testFile)) {
+        const improvedTests = generateExtendedTestCode(componentName, templateContent);
+        fs.writeFileSync(testFile, improvedTests);
+        enhanced.push('Updated tests with edge cases and event handling');
+      }
+
+      // Improve stories file
+      const storiesFile = path.join(componentPath, `${componentName}.stories.tsx`);
+      if (fs.existsSync(storiesFile)) {
+        const improvedStories = generateExtendedStoriesCode(componentName, templateContent);
+        fs.writeFileSync(storiesFile, improvedStories);
+        enhanced.push('Extended stories with more variants and states');
+      }
+
+      // Improve docs
+      const docsFile = path.join(componentPath, `${componentName}.docs.md`);
+      if (fs.existsSync(docsFile)) {
+        const improvedDocs = generateDocsCode(componentName, templateContent);
+        fs.writeFileSync(docsFile, improvedDocs);
+        enhanced.push('Updated documentation');
+      }
+
+      return this.success({
+        component: componentName,
+        enhanced,
+        message: enhanced.length > 0 ? `Improved ${enhanced.length} file(s)` : 'No files found to improve',
+      });
+    } catch (error) {
+      return this.error(error);
     }
-
-    // Improve stories file
-    const storiesFile = path.join(componentPath, `${componentName}.stories.tsx`);
-    if (fs.existsSync(storiesFile)) {
-      const improvedStories = generateExtendedStoriesCode(componentName, templateContent);
-      fs.writeFileSync(storiesFile, improvedStories);
-      enhanced.push('Extended stories with more variants and states');
-    }
-
-    // Improve docs
-    const docsFile = path.join(componentPath, `${componentName}.docs.md`);
-    if (fs.existsSync(docsFile)) {
-      const improvedDocs = generateDocsCode(componentName, templateContent);
-      fs.writeFileSync(docsFile, improvedDocs);
-      enhanced.push('Updated documentation');
-    }
-
-    return this.success({
-      component: componentName,
-      enhanced,
-      message: enhanced.length > 0 ? `Improved ${enhanced.length} file(s)` : 'No files found to improve',
-    });
   }
 }
 

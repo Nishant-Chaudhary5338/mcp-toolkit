@@ -4,7 +4,7 @@
 // ============================================================================
 
 import * as path from 'path';
-import { getDirectoriesAtDepth, calculateMaxDepth, findSourceFiles, resolveSourceDir } from '../utils/file-scanner.js';
+import { getDirectoriesAtDepth, calculateMaxDepth, findSourceFiles, resolveSourceDirs } from '../utils/file-scanner.js';
 import type { FolderStructureOutput, AnalyzerConfig } from '../types.js';
 
 const COMMON_FOLDERS = [
@@ -23,10 +23,21 @@ const COMMON_FOLDERS = [
 ];
 
 export async function analyzeFolderStructure(appPath: string, config?: Partial<AnalyzerConfig>): Promise<FolderStructureOutput> {
-  const srcPath = resolveSourceDir(appPath);
-  const allDirs = getDirectoriesAtDepth(srcPath, 5);
+  // A Next.js app commonly splits code across app/ (routes) + components/ + lib/ —
+  // scan the union of every conventional root that exists, not just one.
+  const srcPaths = resolveSourceDirs(appPath);
 
-  // Get top-level directories in src/
+  const allDirs: string[] = [];
+  for (const root of srcPaths) {
+    // Each root itself counts as a top-level "folder" (e.g. a sibling components/
+    // or lib/ dir), even though getDirectoriesAtDepth only lists dirs *inside* it.
+    allDirs.push(path.basename(root));
+    // Sub-directories stay unprefixed (relative to their own root) so single-root
+    // apps keep the exact same folder names/depths they had before this change.
+    allDirs.push(...getDirectoriesAtDepth(root, 5));
+  }
+
+  // Get top-level directories across all scanned roots
   const topLevelDirs = allDirs.filter((d) => !d.includes(path.sep));
   const secondLevelDirs = allDirs.filter((d) => d.split(path.sep).length === 2);
 
@@ -64,8 +75,8 @@ export async function analyzeFolderStructure(appPath: string, config?: Partial<A
     structureType = 'flat';
   }
 
-  // Calculate depth
-  const maxDepth = calculateMaxDepth(srcPath);
+  // Calculate depth (deepest nesting across every scanned root)
+  const maxDepth = Math.max(...srcPaths.map((root) => calculateMaxDepth(root)));
 
   // Detect issues
   const issues: string[] = [];

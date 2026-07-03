@@ -4,7 +4,7 @@
 // ============================================================================
 
 import * as path from 'path';
-import { findSourceFiles, readFileContent, findStyleFiles, resolveSourceDir } from '../utils/file-scanner.js';
+import { findSourceFiles, readFileContent, findStyleFiles, resolveSourceDir, readPackageJson } from '../utils/file-scanner.js';
 import { parseFile, extractImports } from '../utils/ast-parser.js';
 import type { AnalyzeStylingOutput, AnalyzerConfig } from '../types.js';
 
@@ -43,6 +43,23 @@ export async function analyzeStyling(appPath: string, config?: Partial<AnalyzerC
     if (hasCSS) stylingType.add('CSS');
     if (hasSCSS) stylingType.add('SCSS/Less');
     if (hasModules) stylingType.add('CSS Modules');
+  }
+
+  // Tailwind v4 has no JS `import 'tailwindcss'` — it's pulled in via CSS
+  // directives (`@import "tailwindcss"`, `@tailwind`, `@theme`). Check CSS
+  // content directly, and fall back to the package.json dependency.
+  const TAILWIND_CSS_DIRECTIVE_REGEX = /@import\s+["']tailwindcss["']|@tailwind\b|@theme\b/;
+  for (const styleFile of styleFiles) {
+    const styleContent = readFileContent(styleFile);
+    if (styleContent && TAILWIND_CSS_DIRECTIVE_REGEX.test(styleContent)) {
+      stylingType.add('Tailwind');
+      break;
+    }
+  }
+  if (!stylingType.has('Tailwind')) {
+    const pkg = readPackageJson(appPath);
+    const deps = { ...(pkg?.dependencies as Record<string, string> | undefined), ...(pkg?.devDependencies as Record<string, string> | undefined) };
+    if ('tailwindcss' in deps) stylingType.add('Tailwind');
   }
 
   // Analyze source files for styling patterns

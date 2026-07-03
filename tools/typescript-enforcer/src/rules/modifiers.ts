@@ -51,7 +51,7 @@ export function checkModifiers(source: string, filePath: string): RuleCheckResul
     const trimmed = line.trim();
     if (trimmed.startsWith('//')) continue;
 
-    if (/^\s*return\s*\{/.test(line) && !line.includes('as const')) {
+    if (/^\s*return\s*\{/.test(line) && !line.includes('as const') && !hasExplicitReturnType(lines, i)) {
       let depth = (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length;
       let endLine = i;
       for (let j = i + 1; j < lines.length && depth > 0; j++) {
@@ -86,7 +86,9 @@ export function checkModifiers(source: string, filePath: string): RuleCheckResul
     while ((match = constArrayRegex.exec(line)) !== null) {
       const restOfLine = line.slice(match.index);
       if (!restOfLine.includes('(') && !restOfLine.includes('map') && !restOfLine.includes('filter')) {
-        if (!restOfLine.includes('as const')) {
+        const arrayEnd = findArrayEnd(lines, i);
+        const arrayBody = lines.slice(i, arrayEnd + 1).join('\n');
+        if (!arrayBody.includes('as const')) {
           violations.push({
             rule: 'modifiers',
             severity: 'info',
@@ -228,4 +230,34 @@ function findObjectEnd(lines: string[], startLine: number): number {
     if (depth === 0 && i > startLine) return i;
   }
   return Math.min(startLine + 20, lines.length - 1);
+}
+
+// Scans forward from the line that opens a `[` literal to find its closing
+// bracket, so multiline arrays are checked for an `as const` anywhere in the
+// body rather than only on the declaration line.
+function findArrayEnd(lines: string[], startLine: number): number {
+  let depth = 0;
+  for (let i = startLine; i < lines.length; i++) {
+    depth += (lines[i].match(/\[/g) || []).length;
+    depth -= (lines[i].match(/\]/g) || []).length;
+    if (depth <= 0) return i;
+  }
+  return Math.min(startLine + 20, lines.length - 1);
+}
+
+// Walks backward from a `return {` line to the immediately enclosing block's
+// opening brace. If that block is a function/arrow signature with an explicit
+// return type annotation, suggesting `as const` could conflict with the
+// declared type (e.g. `Partial<Foo>`), so the caller should skip it.
+function hasExplicitReturnType(lines: string[], returnLine: number): boolean {
+  let depth = 0;
+  for (let i = returnLine - 1; i >= 0; i--) {
+    const opens = (lines[i].match(/\{/g) || []).length;
+    const closes = (lines[i].match(/\}/g) || []).length;
+    depth += closes - opens;
+    if (depth < 0) {
+      return /\)\s*:\s*[^{;]+\{\s*$/.test(lines[i].trim());
+    }
+  }
+  return false;
 }

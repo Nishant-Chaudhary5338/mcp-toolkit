@@ -74,9 +74,39 @@ export function scanFile(filePath: string, options: ScanOptions = {}): FileScanR
   };
 }
 
-function scanDirectoryRecursive(dir: string, options: ScanOptions = {}): string[] {
+const DEFAULT_IGNORE_PATTERNS = ['node_modules', 'build', 'dist', '.next', '.git', '__tests__', '.test.', '.spec.', '.stories.'];
+
+// Converts a simple glob (supporting `*` and `**`) into a RegExp matched against
+// a path relative to the scan root, so patterns like '**/contacts/**' work.
+function globToRegExp(pattern: string): RegExp {
+  let regexStr = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === '*') {
+      if (pattern[i + 1] === '*') {
+        regexStr += '.*';
+        i++;
+        if (pattern[i + 1] === '/') i++;
+      } else {
+        regexStr += '[^/]*';
+      }
+    } else if ('.+^${}()|[]\\'.includes(c)) {
+      regexStr += '\\' + c;
+    } else {
+      regexStr += c;
+    }
+  }
+  return new RegExp(regexStr);
+}
+
+function matchesIgnore(relativePath: string, patterns: string[]): boolean {
+  return patterns.some(pattern =>
+    pattern.includes('*') ? globToRegExp(pattern).test(relativePath) : relativePath.includes(pattern)
+  );
+}
+
+function scanDirectoryRecursive(dir: string, root: string, ignorePatterns: string[]): string[] {
   const files: string[] = [];
-  const ignorePatterns = options.ignore || ['node_modules', 'build', 'dist', '.next', '.git', '__tests__', '.test.', '.spec.', '.stories.'];
 
   if (!fs.existsSync(dir)) return files;
 
@@ -84,11 +114,12 @@ function scanDirectoryRecursive(dir: string, options: ScanOptions = {}): string[
   for (const entry of entries) {
     if (entry.isSymbolicLink()) continue;
     const fullPath = path.join(dir, entry.name);
+    const relativePath = path.relative(root, fullPath);
 
-    if (ignorePatterns.some(pattern => entry.name.includes(pattern))) continue;
+    if (matchesIgnore(relativePath, ignorePatterns)) continue;
 
     if (entry.isDirectory()) {
-      files.push(...scanDirectoryRecursive(fullPath, options));
+      files.push(...scanDirectoryRecursive(fullPath, root, ignorePatterns));
     } else if (entry.name.match(/\.(ts|tsx|js|jsx)$/)) {
       files.push(fullPath);
     }
@@ -98,7 +129,8 @@ function scanDirectoryRecursive(dir: string, options: ScanOptions = {}): string[
 }
 
 export function scanDirectory(dir: string, options: ScanOptions = {}): DirectoryScanResult {
-  let files = scanDirectoryRecursive(dir, options);
+  const ignorePatterns = [...DEFAULT_IGNORE_PATTERNS, ...(options.ignore || [])];
+  let files = scanDirectoryRecursive(dir, dir, ignorePatterns);
 
   if (options.maxFiles && files.length > options.maxFiles) {
     files = files.slice(0, options.maxFiles);

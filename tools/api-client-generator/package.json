@@ -1,0 +1,21 @@
+{
+  "name": "@mcp-showcase/api-client-generator",
+  "version": "1.0.0",
+  "description": "Generate a typed CRUD data layer (RTK Query slice or TanStack Query hooks) from a FieldSchema, with cache invalidation wired in.",
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mcp-showcase/shared": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

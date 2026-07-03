@@ -31,6 +31,14 @@ export function readWorkspaceConfig(root: string): string[] {
         .filter(Boolean);
     }
   }
+
+  const rootPkg = safeReadJson<{ workspaces?: string[] | { packages?: string[] } }>(
+    path.join(root, 'package.json'),
+  );
+  const workspaces = rootPkg?.workspaces;
+  if (Array.isArray(workspaces)) return workspaces;
+  if (workspaces && Array.isArray(workspaces.packages)) return workspaces.packages;
+
   return ['apps/*', 'packages/*', 'tools/*'];
 }
 

@@ -5,21 +5,28 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { findSourceFiles, readFileContent } from '../utils/file-scanner.js';
+import { findSourceFiles, readFileContent, readPackageJson } from '../utils/file-scanner.js';
 import { parseFile, extractImports, extractJSX } from '../utils/ast-parser.js';
 import type { AnalyzeRoutingOutput, AnalyzerConfig } from '../types.js';
 
 const ROUTING_LIBRARIES = ['react-router-dom', 'react-router', '@reach/router', 'wouter', 'preact-router', '@remix-run/react'] as const;
 
 export async function analyzeRouting(appPath: string, config?: Partial<AnalyzerConfig>): Promise<AnalyzeRoutingOutput> {
-  // Detect Next.js / Remix file-based routing before doing source file scan
+  // Detect Next.js / Remix file-based routing before doing source file scan.
+  // An app/ or pages/ dir alone is not proof of Next.js — react-router configs
+  // (e.g. src/app/routes.tsx) live in the same conventional locations — so only
+  // trust this path when `next` is an actual dependency.
+  const pkg = readPackageJson(appPath);
+  const deps = { ...(pkg?.dependencies as Record<string, string> | undefined), ...(pkg?.devDependencies as Record<string, string> | undefined) };
+  const isNextProject = 'next' in deps;
+
   const nextPagesDir = path.join(appPath, 'pages');
   const nextAppDir = path.join(appPath, 'app');
   const srcPagesDir = path.join(appPath, 'src', 'pages');
   const srcAppDir = path.join(appPath, 'src', 'app');
 
-  const hasNextPages = fs.existsSync(nextPagesDir) || fs.existsSync(srcPagesDir);
-  const hasNextApp = fs.existsSync(nextAppDir) || fs.existsSync(srcAppDir);
+  const hasNextPages = isNextProject && (fs.existsSync(nextPagesDir) || fs.existsSync(srcPagesDir));
+  const hasNextApp = isNextProject && (fs.existsSync(nextAppDir) || fs.existsSync(srcAppDir));
 
   if (hasNextPages || hasNextApp) {
     const routerType = hasNextApp ? 'app-router' : 'pages-router';

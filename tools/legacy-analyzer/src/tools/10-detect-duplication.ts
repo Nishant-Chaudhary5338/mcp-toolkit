@@ -93,64 +93,76 @@ export async function detectDuplication(appPath: string, config?: Partial<Analyz
     }
   }
 
-  // Compare each pair of components
-  const processedComponentPairs = new Set<string>();
-  for (const [fileA, analysisA] of componentAnalyses) {
-    for (const [fileB, analysisB] of componentAnalyses) {
-      if (fileA === fileB) continue;
+  // Compare components pairwise, but only within buckets that share an identical
+  // hook signature. Naively comparing every (file, file) pair is O(n^2) — on a
+  // 10k-component repo that's millions of pairs, each paying a full file read +
+  // tokenize, which is what made this hang past 120s. Since a match REQUIRES an
+  // identical hook set anyway (hooksMatch below), bucketing by that signature first
+  // turns the comparison into O(sum of bucket_size^2) instead of O(n^2) — cheap in
+  // practice because real repos rarely have hundreds of components sharing an exact
+  // hook set. (QA harness regression: 10k-file synthetic repo — analyze-legacy-app
+  // previously timed out past 120s; verified fixed below.)
+  const hookSignature = (analysis: NonNullable<ReturnType<typeof analyzeComponent>>): string | null => {
+    const hooks = new Set(analysis.hooks.map((h) => h.name));
+    if (hooks.size < 2) return null; // 1 hook = too common to signal duplication
+    return Array.from(hooks).sort().join(',');
+  };
 
-      const pairKey = [fileA, fileB].sort().join('|');
-      if (processedComponentPairs.has(pairKey)) continue;
-      processedComponentPairs.add(pairKey);
+  const buckets = new Map<string, string[]>();
+  for (const [file, analysis] of componentAnalyses) {
+    if (!analysis) continue;
+    const sig = hookSignature(analysis);
+    if (sig === null) continue;
+    if (!buckets.has(sig)) buckets.set(sig, []);
+    buckets.get(sig)!.push(file);
+  }
 
-      // Compare based on: same hooks, similar imports, similar JSX structure
-      const hooksA = new Set(analysisA.hooks.map((h) => h.name));
-      const hooksB = new Set(analysisB.hooks.map((h) => h.name));
+  for (const bucketFiles of buckets.values()) {
+    if (bucketFiles.length < 2) continue;
+    for (let i = 0; i < bucketFiles.length; i++) {
+      for (let j = i + 1; j < bucketFiles.length; j++) {
+        const fileA = bucketFiles[i];
+        const fileB = bucketFiles[j];
+        const analysisA = componentAnalyses.get(fileA)!;
 
-      const hooksMatch = hooksA.size > 0 &&
-        Array.from(hooksA).every((h) => hooksB.has(h)) &&
-        hooksA.size === hooksB.size;
+        // Compare normalized code
+        const contentA = readFileContent(fileA);
+        const contentB = readFileContent(fileB);
+        if (!contentA || !contentB) continue;
 
-      // Only compare hooks if both have at least 2 hooks (1 hook = too common to signal duplication)
-      if (hooksA.size < 2 || hooksB.size < 2) continue;
+        // Skip tiny files (< 20 lines) — too small to constitute meaningful duplication
+        const linesA = contentA.split('\n').length;
+        const linesB = contentB.split('\n').length;
+        if (linesA < 20 || linesB < 20) continue;
 
-      // Compare normalized code
-      const contentA = readFileContent(fileA);
-      const contentB = readFileContent(fileB);
-      if (!contentA || !contentB) continue;
+        const normalizedA = normalizeCode(contentA);
+        const normalizedB = normalizeCode(contentB);
+        const similarity = calculateSimilarity(normalizedA, normalizedB);
 
-      // Skip tiny files (< 20 lines) — too small to constitute meaningful duplication
-      const linesA = contentA.split('\n').length;
-      const linesB = contentB.split('\n').length;
-      if (linesA < 20 || linesB < 20) continue;
+        if (similarity > mergedConfig.duplicationThreshold) {
+          // Check if we already have an entry for either file
+          const existingEntry = duplicateComponents.find(
+            (d) => d.locations.includes(path.relative(appPath, fileA)) || d.locations.includes(path.relative(appPath, fileB))
+          );
 
-      const normalizedA = normalizeCode(contentA);
-      const normalizedB = normalizeCode(contentB);
-      const similarity = calculateSimilarity(normalizedA, normalizedB);
-
-      if (hooksMatch && similarity > mergedConfig.duplicationThreshold) {
-        // Check if we already have an entry for either file
-        const existingEntry = duplicateComponents.find(
-          (d) => d.locations.includes(path.relative(appPath, fileA)) || d.locations.includes(path.relative(appPath, fileB))
-        );
-
-        if (existingEntry) {
-          if (!existingEntry.locations.includes(path.relative(appPath, fileA))) {
-            existingEntry.locations.push(path.relative(appPath, fileA));
+          if (existingEntry) {
+            if (!existingEntry.locations.includes(path.relative(appPath, fileA))) {
+              existingEntry.locations.push(path.relative(appPath, fileA));
+            }
+            if (!existingEntry.locations.includes(path.relative(appPath, fileB))) {
+              existingEntry.locations.push(path.relative(appPath, fileB));
+            }
+            existingEntry.similarity = Math.max(existingEntry.similarity, similarity);
+          } else {
+            duplicateComponents.push({
+              name: analysisA.name,
+              locations: [
+                path.relative(appPath, fileA),
+                path.relative(appPath, fileB),
+              ],
+              similarity: Math.round(similarity * 100) / 100,
+            });
           }
-          if (!existingEntry.locations.includes(path.relative(appPath, fileB))) {
-            existingEntry.locations.push(path.relative(appPath, fileB));
-          }
-          existingEntry.similarity = Math.max(existingEntry.similarity, similarity);
-        } else {
-          duplicateComponents.push({
-            name: analysisA.name,
-            locations: [
-              path.relative(appPath, fileA),
-              path.relative(appPath, fileB),
-            ],
-            similarity: Math.round(similarity * 100) / 100,
-          });
         }
       }
     }

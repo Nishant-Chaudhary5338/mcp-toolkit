@@ -14,6 +14,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ToolRegistry } from './ToolRegistry.js';
+import { renderDashboard } from './dashboard.js';
 import type { ServerConfig, ToolDefinition, ToolHandler, ToolResult } from './types.js';
 
 export abstract class McpServerBase {
@@ -80,6 +81,16 @@ export abstract class McpServerBase {
     return {
       content: [{ type: 'text', text: JSON.stringify({ success: true, ...data }, null, 2) }],
     };
+  }
+
+  /**
+   * Like success(), but also renders a self-contained interactive HTML dashboard
+   * for the result (summary chips, code panels with copy, finding tables,
+   * collapsible JSON) — inline in MCP Apps hosts, plus a file:// link elsewhere.
+   */
+  protected successWithDashboard<T extends Record<string, unknown>>(title: string, data: T): ToolResult {
+    const uri = `ui://${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'result'}`;
+    return this.successWithUI(data, { uri, html: renderDashboard(title, data) });
   }
 
   /**

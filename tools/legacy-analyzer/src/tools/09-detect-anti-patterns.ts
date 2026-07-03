@@ -43,19 +43,40 @@ export async function detectAntiPatterns(appPath: string, config?: Partial<Analy
   }
 
   // ── 2. Tight coupling ────────────────────────────────────────────────────
+  // A prior optimization attempt restricted candidate pairs to resolved
+  // import-graph edges, reasoning that calculateCoupling can only score
+  // nonzero when an import edge exists. That's false: calculateCoupling does
+  // a raw substring check (imp.source.includes(basename(other))), which can
+  // be true for a pair with NO resolved edge at all — e.g. fileA imports
+  // './formatter' (resolves to formatter.ts) while fileB is format.ts;
+  // 'formatter'.includes('format') is true, but fileB is never in fileA's
+  // resolved edges. Restricting to edges would silently drop real findings
+  // (verified with a standalone repro, not just reasoning about it) — a
+  // correctness regression, not an acceptable tradeoff for a diagnostic
+  // tool. Reverted to the full pairwise scan; the real fix for a 10k-file
+  // repo hanging here is a size guard, not a shortcut that can be wrong.
   const tightCouplingPairs: string[] = [];
-  const processedPairs = new Set<string>();
-  for (const fileA of files) {
-    for (const fileB of files) {
-      if (fileA === fileB) continue;
-      const pairKey = [fileA, fileB].sort().join('|');
-      if (processedPairs.has(pairKey)) continue;
-      processedPairs.add(pairKey);
-      const coupling = calculateCoupling(graph, fileA, fileB);
-      if (coupling >= 3) {
-        tightCouplingPairs.push(
-          `${path.relative(appPath, fileA)} <-> ${path.relative(appPath, fileB)} (coupling: ${coupling})`
-        );
+  const MAX_FILES_FOR_COUPLING_CHECK = 2000;
+  if (files.length > MAX_FILES_FOR_COUPLING_CHECK) {
+    antiPatterns.push({
+      type: 'tight-coupling',
+      description: `Skipped: tight-coupling check compares every file pair and doesn't scale past ${MAX_FILES_FOR_COUPLING_CHECK} files (this app has ${files.length}). Run it on a subdirectory instead.`,
+      files: [],
+    });
+  } else {
+    const processedPairs = new Set<string>();
+    for (const fileA of files) {
+      for (const fileB of files) {
+        if (fileA === fileB) continue;
+        const pairKey = [fileA, fileB].sort().join('|');
+        if (processedPairs.has(pairKey)) continue;
+        processedPairs.add(pairKey);
+        const coupling = calculateCoupling(graph, fileA, fileB);
+        if (coupling >= 3) {
+          tightCouplingPairs.push(
+            `${path.relative(appPath, fileA)} <-> ${path.relative(appPath, fileB)} (coupling: ${coupling})`
+          );
+        }
       }
     }
   }

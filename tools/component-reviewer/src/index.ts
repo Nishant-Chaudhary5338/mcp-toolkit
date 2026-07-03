@@ -5,7 +5,7 @@ import { renderReportHTML } from '@mcp-showcase/ui-kit';
 import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -167,7 +167,8 @@ export function analyzeTypeScript(content: string, lines: string[]): ReviewIssue
       });
     }
 
-    if (line.match(/\bas\s+[A-Z]/g) && !line.includes('as const')) {
+    const isImportOrExportAs = /^\s*(?:import|export)\b/.test(line) && /\bas\b/.test(line);
+    if (!isImportOrExportAs && line.match(/\bas\s+[A-Z]/g) && !line.includes('as const')) {
       issues.push({
         id: `TS-${String(++issueCounter).padStart(3, '0')}`,
         category: 'type-safety',
@@ -225,7 +226,15 @@ export function analyzeReactPatterns(content: string, lines: string[], component
   const issues: ReviewIssue[] = [];
   let issueCounter = 0;
 
-  if (!content.includes('displayName') && !content.includes('forwardRef')) {
+  // Named function/const components already show their name in DevTools, so
+  // only components that lose that name (forwardRef/memo wrapping, or an
+  // anonymous default export) actually benefit from an explicit displayName.
+  const needsDisplayName =
+    /\b(?:React\.)?(?:forwardRef|memo)\s*(?:<[^(]*>)?\s*\(/.test(content) ||
+    /export\s+default\s+function\s*\(/.test(content) ||
+    /export\s+default\s+\([^)]*\)\s*=>/.test(content);
+
+  if (needsDisplayName && !content.includes('displayName')) {
     issues.push({
       id: `REACT-${String(++issueCounter).padStart(3, '0')}`,
       category: 'react-patterns',
@@ -848,7 +857,10 @@ function runTypeScriptCheck(componentDir: string): { errors: string[]; passed: b
       return { errors: ['No tsconfig.json found'], passed: true };
     }
 
-    execSync(`npx tsc --noEmit --project ${tsconfigPath}`, {
+    // tsconfigPath is built from componentDir, caller-controlled input —
+    // execFileSync passes it as a literal argv entry (no shell), avoiding the
+    // injection risk of interpolating an untrusted path into a shell string.
+    execFileSync('npx', ['tsc', '--noEmit', '--project', tsconfigPath], {
       cwd: componentDir,
       stdio: 'pipe',
       timeout: 30000,
@@ -869,7 +881,10 @@ function runTests(componentDir: string, componentName: string): { passed: number
   }
 
   try {
-    const output = execSync(`npx vitest run ${testFile} --reporter=json 2>&1`, {
+    // testFile is derived from componentName/componentDir, caller-controlled —
+    // execFileSync passes it as a literal argv entry (no shell), avoiding the
+    // injection risk of interpolating an untrusted path into a shell string.
+    const output = execFileSync('npx', ['vitest', 'run', testFile, '--reporter=json'], {
       cwd: path.join(componentDir, '..', '..'),
       stdio: 'pipe',
       timeout: 60000,

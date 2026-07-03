@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { McpServerBase, safeReadFile, isServerComponent, NEXTJS_ROUTE_FILES } from '@mcp-showcase/shared';
+import { McpServerBase, safeReadFile, isServerComponent, NEXTJS_ROUTE_FILES, resolveRelativeImport } from '@mcp-showcase/shared';
 import { renderResultHTML } from '@mcp-showcase/ui-kit';
 import * as fs from 'fs';
 import * as path from 'path';
 import { analyzeSource } from './analyzer.js';
-import { generateComponentTests, generateFunctionTests, generateHookTests, generateClassTests } from './generators.js';
+import { generateComponentTests, generateFunctionTests, generateHookTests, generateClassTests, assembleTestFile } from './generators.js';
 import { toResultReport, type GenerateTestsResult } from './result-report.js';
 
 function scanDirectory(dir: string, exts: string[] = ['.ts', '.tsx', '.js', '.jsx']): string[] {
@@ -81,27 +81,31 @@ class GenerateTestsServer extends McpServerBase {
 
           const analysis = analyzeSource(content);
 
+          // Compute the destination first so the import specifier is correct
+          // relative to where the test file will actually live.
+          const dest = outputPath ? path.resolve(outputPath) : testFilePath(resolved);
+          const importPath = resolveRelativeImport(dest, resolved);
+
           const testSections: string[] = [];
 
           for (const c of analysis.components) {
-            testSections.push(generateComponentTests(c));
+            testSections.push(generateComponentTests(c, importPath));
           }
           for (const h of analysis.hooks) {
-            testSections.push(generateHookTests(h));
+            testSections.push(generateHookTests(h, importPath));
           }
           for (const f of analysis.functions) {
-            testSections.push(generateFunctionTests(f));
+            testSections.push(generateFunctionTests(f, importPath));
           }
           for (const cl of analysis.classes) {
-            testSections.push(generateClassTests(cl));
+            testSections.push(generateClassTests(cl, importPath));
           }
 
           if (testSections.length === 0) {
             return this.success({ message: 'No exportable symbols found to generate tests for', analysis });
           }
 
-          const testContent = testSections.join('\n');
-          const dest = outputPath ? path.resolve(outputPath) : testFilePath(resolved);
+          const testContent = assembleTestFile(testSections);
 
           if (fs.existsSync(dest) && !overwrite) {
             return this.success({
@@ -169,13 +173,14 @@ class GenerateTestsServer extends McpServerBase {
               continue;
             }
 
+            const importPath = resolveRelativeImport(dest, file);
             const sections: string[] = [];
-            for (const c of analysis.components) sections.push(generateComponentTests(c));
-            for (const h of analysis.hooks) sections.push(generateHookTests(h));
-            for (const f of analysis.functions) sections.push(generateFunctionTests(f));
-            for (const cl of analysis.classes) sections.push(generateClassTests(cl));
+            for (const c of analysis.components) sections.push(generateComponentTests(c, importPath));
+            for (const h of analysis.hooks) sections.push(generateHookTests(h, importPath));
+            for (const f of analysis.functions) sections.push(generateFunctionTests(f, importPath));
+            for (const cl of analysis.classes) sections.push(generateClassTests(cl, importPath));
 
-            fs.writeFileSync(dest, sections.join('\n'), 'utf-8');
+            fs.writeFileSync(dest, assembleTestFile(sections), 'utf-8');
             generated.push(path.relative(resolved, dest));
           }
 

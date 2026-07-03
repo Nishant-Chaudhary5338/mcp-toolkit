@@ -1,0 +1,125 @@
+import { describe, it, expect } from 'vitest';
+import { generateForm } from './core.js';
+import type { FieldSchema, Field } from '@mcp-showcase/shared';
+
+function f(name: string, type: Field['type'], extra: Partial<Field> = {}): Field {
+  return { name, label: name, type, required: true, table: { show: true, sortable: true, filterable: true }, form: { show: true }, ...extra };
+}
+
+const schema: FieldSchema = {
+  resource: 'article',
+  baseEndpoint: '/api/articles',
+  idKey: 'id',
+  fields: [
+    f('title', 'text'),
+    f('body', 'textarea'),
+    f('status', 'select', { enumValues: ['draft', 'published'] }),
+    f('views', 'number'),
+    f('featured', 'boolean'),
+  ],
+};
+
+describe('generateForm — create / rtk', () => {
+  it('wires RHF + zodResolver + the create mutation', () => {
+    const out = generateForm(schema, { mode: 'create', dataLayer: 'rtk' });
+    if (!out.ok) throw new Error(out.error);
+    const { code } = out.result;
+    expect(code).toContain("import { useForm } from 'react-hook-form'");
+    expect(code).toContain("import { zodResolver } from '@hookform/resolvers/zod'");
+    expect(code).toContain("import { ArticleSchema, type Article } from './Article.schema'");
+    expect(code).toContain("import { useCreateArticleMutation } from './Article.api'");
+    expect(code).toContain('resolver: zodResolver(ArticleSchema)');
+    expect(code).toContain('await createArticle(body).unwrap();');
+    expect(out.result.componentName).toBe('ArticleCreateForm');
+  });
+
+  it('renders the right control per field type', () => {
+    const out = generateForm(schema, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    const { code } = out.result;
+    expect(code).toContain('<textarea {...register(\'body\')}');
+    expect(code).toContain('<select {...register(\'status\')}');
+    expect(code).toContain('<option value={"draft"}>{"draft"}</option>');
+    expect(code).toContain("valueAsNumber: true");
+    expect(code).toContain('<input type="checkbox"');
+  });
+});
+
+describe('generateForm — arbitrary label/enum text (QA fuzz regression)', () => {
+  // Found fuzzing form-generator: labels and enum values are arbitrary text
+  // (may contain quotes, backticks, or markup like "</script>") and were
+  // interpolated raw into JSX attributes/text, breaking the generated
+  // component's syntax. Now rendered via JSX expression containers +
+  // JSON.stringify(), which is always syntactically valid and HTML-safe.
+  it('renders a label containing markup as a JSX expression, not raw JSX text', () => {
+    const s: FieldSchema = { ...schema, fields: [f('x', 'text', { label: '</script><script>alert(1)</script>' })] };
+    const out = generateForm(s, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('{"</script><script>alert(1)</script>"}');
+  });
+
+  it('renders enum values containing quotes/backticks as JSX expressions', () => {
+    const s: FieldSchema = { ...schema, fields: [f('status', 'select', { enumValues: [`it's`, '"quoted"', '`backtick`'] })] };
+    const out = generateForm(s, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('<option value={"it\'s"}>{"it\'s"}</option>');
+    expect(out.result.code).toContain('<option value={"\\"quoted\\""}>{"\\"quoted\\""}</option>');
+  });
+});
+
+describe('generateForm — edit', () => {
+  it('rtk edit fetches the record and PUTs by id', () => {
+    const out = generateForm(schema, { mode: 'edit', dataLayer: 'rtk' });
+    if (!out.ok) throw new Error(out.error);
+    const { code } = out.result;
+    expect(code).toContain('({ id }: { id: string })');
+    expect(code).toContain('useGetArticleQuery(id)');
+    expect(code).toContain('await updateArticle({ id, body }).unwrap();');
+    expect(code).toContain('values: data,');
+    expect(out.result.componentName).toBe('ArticleEditForm');
+  });
+
+  it('tanstack edit uses mutateAsync + isPending', () => {
+    const out = generateForm(schema, { mode: 'edit', dataLayer: 'tanstack' });
+    if (!out.ok) throw new Error(out.error);
+    const { code } = out.result;
+    expect(code).toContain('const { data } = useArticle(id);');
+    expect(code).toContain('await mutateAsync({ id, body });');
+    expect(code).toContain('disabled={isPending}');
+  });
+});
+
+describe('generateForm — strict lint QA regression (2026-07-04)', () => {
+  // Found by the cross-app QA harness under typescript-eslint strictTypeChecked:
+  // `<form onSubmit={onSubmit}>` passed a Promise-returning handler directly to
+  // an attribute expecting void (no-misused-promises); `errors.field?.message as
+  // string` was flagged for both an unnecessary optional chain (already guarded
+  // by `errors.field &&`) and a non-nullable-type-assertion-style violation.
+  it('wraps the async submit handler so onSubmit resolves to void, not a Promise', () => {
+    const out = generateForm(schema, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('onSubmit={(e) => { void onSubmit(e); }}');
+    expect(out.result.code).not.toContain('onSubmit={onSubmit}');
+  });
+
+  it('renders the field error message without a redundant optional chain or cast', () => {
+    const out = generateForm(schema, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('{errors.title.message}');
+    expect(out.result.code).not.toContain('?.message as string');
+  });
+});
+
+describe('generateForm — errors', () => {
+  it('rejects a non-FieldSchema', () => {
+    expect(generateForm({ nope: 1 }).ok).toBe(false);
+  });
+  it('rejects unknown mode', () => {
+    // @ts-expect-error runtime guard
+    expect(generateForm(schema, { mode: 'delete' }).ok).toBe(false);
+  });
+  it('rejects when no form-visible fields', () => {
+    const hidden: FieldSchema = { ...schema, fields: [f('secret', 'password', { form: { show: false } })] };
+    expect(generateForm(hidden).ok).toBe(false);
+  });
+});

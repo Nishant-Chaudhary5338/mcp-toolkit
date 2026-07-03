@@ -34,3 +34,6 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Tool quality gate (mcp-tool-improviser)
+        run: node scripts/improviser-gate.mjs

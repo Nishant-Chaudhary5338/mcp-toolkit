@@ -11,7 +11,8 @@
   "main": "./build/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0"

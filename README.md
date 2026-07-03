@@ -10,12 +10,32 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ---
 
+## Why this exists — the token math
+
+Here's the thing nobody tells you when you start building agentic workflows: the loop itself is what's expensive, not the model. An agent working without any composed tools does everything the slow way — read a file, think, write a file, read it back to check its own work, repeat — and every single one of those turns re-sends the whole conversation so far as input tokens. By the time you're 20 steps into a real multi-file task, that resent context alone can be running 50K+ tokens per call. It adds up fast, and it's not really about which model you're using.
+
+I didn't just take that on faith — a few sources back it up with real numbers. [LeanOps measured](https://leanopstech.com/blog/agentic-ai-cost-runaway-token-budget-2026/) agent loops running about 3.2× the tokens of a single direct call at 5 steps, ~30× at 50 steps, and past 100× once you're deep into a typical build-and-debug session — because re-sent context is roughly 62% of the bill. [Vantage found](https://www.vantage.sh/blog/agentic-coding-costs) similar: real agentic sessions run an input-to-output ratio around 25:1 (a direct call is closer to 1:1), with a 50-turn session routinely hitting a million input tokens, and non-agentic usage on comparable work costing something like 200× less per interaction on the same team. And a [recent arXiv paper on agentic tokenomics](https://arxiv.org/html/2601.14470v1) puts agentic tasks at roughly 1000× the tokens of single-turn work, with up to 30× variance run to run on the exact same task — so it's not just expensive, it's unpredictable.
+
+That's the problem this toolkit's composed tools are built to get rid of. `workflow-runner`'s `schema_to_feature` and `cra-to-vite` don't add one more tool call into an agent's existing loop — they replace what would otherwise be 7 or 8 separate read/write/verify turns with a single in-process call that runs the whole generator or migration pipeline and hands back the finished result. That's the "50-turn loop collapses into 1 call" shape the research above says saves 10–100×, which is a very different thing from just bolting one extra tool onto an unchanged loop (that only gets you the 20–40% range).
+
+To keep myself honest, I also ran a real, measured benchmark rather than just trusting the theory — `ax-benchmark`, 6 tasks, `claude -p` running headless, three arms (agent alone, agent with one MCP tool call added into its loop, and the tool called directly with no agent at all). This is a conservative baseline on purpose, since it only tests adding a single tool call into an otherwise unchanged loop, not the deeper pipeline collapse described above:
+
+| | Agent alone | Agent + one MCP tool | Tool called directly |
+|---|---|---|---|
+| Analysis tasks (review, a11y, legacy-code) | baseline | ~41% lower cost | ~100% free, ~15× faster (when in scope) |
+| All 6 tasks, blended | baseline | ~19% lower cost | — |
+| New code (component, tests) | baseline | roughly cost-neutral | not applicable to novel work |
+
+Two things worth being upfront about: cost is the fair metric here, not wall-time — the agent-alone arm ran headless with no shell access and over-explored on open-ended tasks, which inflated its time without touching its actual cost. And on small, novel, single-file work, the overhead of the tool's structured output can offset what it saves — the real win shows up on repetitive, mechanical, multi-file work, which also happens to be exactly where the multi-turn-loop tax above hits hardest.
+
+---
+
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 17 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 59 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 17 tools
+npx mcp-react-toolkit --list            # list all 59 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +85,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      17 MCP server packages — each independently buildable and runnable
+tools/      59 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +106,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 17 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 59 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -96,12 +116,17 @@ All 17 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | `component-reviewer` | Audit TypeScript errors, a11y issues, test coverage — graded A+ to F | 3 |
 | `component-fixer` | Auto-fix broken imports, missing deps, inline style refactors | 3 |
 | `storybook-generator` | Auto-generate Storybook stories — Default, variants, sizes, callbacks, play functions | 2 |
+| `component-improver` | Extend a component with variants, comprehensive stories, and edge-case tests | 1 |
 
 ### Code Quality & Modernisation
 
 | Tool | What it does | MCP tools exposed |
 |---|---|---|
 | `code-modernizer` | AST-based JS/JSX → TypeScript conversion, PropTypes → interfaces | 1 |
+| `refactor-executor` | Execute refactor plans safely — move/rename/split, update imports, validate build, rollback | 10 |
+| `react-compiler-migrator` | Flag redundant useMemo/useCallback/memo for the React 19 Compiler + rules-of-hooks blockers | 2 |
+| `a11y-autofixer` | Apply safe a11y fixes (img alt, blank rel, htmlFor, tabIndex) — the execute half | 1 |
+| `codemod-runner` | Generic regex codemod engine + named built-ins (env, jest→vi, render→createRoot); dry-run | 2 |
 | `typescript-enforcer` | Scan for `any` types, unsafe casts, missing modifiers — 7 rules, scored 0–10 | 4 |
 | `accessibility-checker` | WCAG 2.1 audit — alt text, label associations, ARIA roles, keyboard navigation | 3 |
 | `generate-tests` | Analyze a TypeScript/React source file and generate a Vitest test suite | 2 |
@@ -109,6 +134,13 @@ All 17 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | `render-analyzer` | Detect unnecessary re-renders, missing memo, inline objects/functions | 3 |
 | `performance-audit` | Memory leaks, heavy imports, unoptimized images, deep nesting | 3 |
 | `test-gap-analyzer` | Find unimplemented functions, uncovered branches, missing edge cases | 3 |
+| `bundle-budget-guard` | Gate gzipped asset sizes against per-pattern budgets — fail CI on regressions | 1 |
+| `api-contract-differ` | Diff two API snapshots → breaking vs additive changes — CI gate against breaks | 1 |
+| `redux-state-analyzer` | Audit Redux for anti-patterns/optimizations (selectors, mutations, RTK Query) — grade A–F | 1 |
+| `i18n-extractor` | Scan JSX for hardcoded strings → i18n keys + message catalog | 1 |
+| `enforce-design-tokens` | Flag hardcoded colors/spacing/radii/shadows, suggest tokens, grade A–F | 3 |
+| `test-data-factory` | `FieldSchema` → typed fixture factory (makeX/makeXs + overrides) for tests/stories | 1 |
+| `fix-failing-tests` | Run the suite, classify failures by root cause, generate targeted fixes | 3 |
 | `legacy-analyzer` | 22-tool health audit for any React/Next.js/Remix app — scores 0–100, migration hints | 22 |
 
 ### Monorepo & Infrastructure
@@ -119,6 +151,60 @@ All 17 tools are production-ready: built, tested, and CI-verified on Node 20 + 2
 | `monorepo-manager` | Workspace listing, dependency graph, health check, shared dep finder | 6 |
 | `lighthouse-runner` | Static HTML audit — meta tags, a11y, OG/Twitter cards, canonical, JSON-LD | 4 |
 | `json-viewer` | Generate an interactive HTML JSON viewer — collapsible, searchable, dark/light | 3 |
+
+### CRUD Factory
+
+One JSON API sample (or OpenAPI schema) fans out into a full, typed CRUD feature. Every generator keys off the shared `FieldSchema` contract, so the pieces compose.
+
+| Tool | What it does | MCP tools exposed |
+|---|---|---|
+| `infer-fields` | JSON sample / OpenAPI → typed `FieldSchema` (types, FK relations, table/form defaults) | 1 |
+| `zod-schema-generator` | `FieldSchema` → Zod schema + inferred TS type | 1 |
+| `api-client-generator` | `FieldSchema` → RTK Query slice **or** TanStack Query hooks, with cache tags | 1 |
+| `form-generator` | `FieldSchema` → React Hook Form + Zod form (create / edit) | 1 |
+| `table-generator` | `FieldSchema` → TanStack Table (sort / filter / paginate) | 1 |
+| `detail-generator` | `FieldSchema` → typed detail view + delete action | 1 |
+| `crud-composer` | Wire the pieces into routes — React Router 7 or Next App Router | 1 |
+| `form-wizard-generator` | `FieldSchema` → multi-step RHF+Zod wizard (per-step validation, progress) | 1 |
+| `msw-mock-generator` | `FieldSchema` → MSW handlers + seed data, so the generated CRUD runs against a mock API | 1 |
+| `workflow-runner` | Run `schema_to_feature` end-to-end, gated by `review-gate` — returns files + journal + A–F grade | 1 |
+| `e2e-generator` | `FieldSchema` → Playwright CRUD flow spec (create→edit→delete + a11y) | 1 |
+| `playwright-scaffolder` | Scaffold the Playwright harness — config, fixtures, base POM, auth setup | 1 |
+| `visual-regression-setup` | Playwright toHaveScreenshot specs for routes/stories — catch CSS drift | 1 |
+| `review-gate` | Static A–F quality gate for generated/changed code (a11y, tokens, smells, stubs) | 1 |
+
+### CRA → Vite
+
+Migrate a Create-React-App project to Vite: analyze → plan → scaffold → migrate → verify.
+
+| Tool | What it does | MCP tools exposed |
+|---|---|---|
+| `cra-to-vite` | **Orchestrator** — analyze → plan → scaffold → migrate → report (A–F), point it at a CRA app | 1 |
+| `craconfig-analyzer` | Deep CRA config inspection (react-scripts, env, proxy, jest, browserslist, PWA, SVG…) | 1 |
+| `dependency-remapper` | CRA deps → Vite plan (remove/add with versions + unmapped) | 1 |
+| `env-var-migrator` | Rewrite REACT_APP_ → VITE_ / import.meta.env + rename .env keys, flag dynamic | 1 |
+| `jest-to-vitest-migrator` | jest.* → vi.* + vitest import + flag mock factories | 1 |
+| `vite-project-scaffolder` | Generate the Vite shell — vite.config, index.html, main.tsx, strict tsconfig | 1 |
+| `webpack-config-translator` | Translate webpack/CRACO → Vite (aliases, plugins, loaders) + manual-review list | 1 |
+
+### Boilerplate
+
+| Tool | What it does | MCP tools exposed |
+|---|---|---|
+| `barrel-generator` | Generate an index.ts barrel re-exporting a folder — no more drifting export lists | 1 |
+| `type-from-json` | JSON sample → plain TS interfaces (nested objects → their own interfaces) | 1 |
+| `zustand-store-generator` | State shape → typed Zustand store (setters, reset, persist/devtools) | 1 |
+| `svg-to-component` | Raw SVG → typed React component (SVGProps, currentColor) — SVGR-grade | 1 |
+| `env-config-generator` | Zod-validated typed env module (Vite/Next) — fail fast on missing/bad vars | 1 |
+| `states-scaffolder` | Loading/empty/error state components + a switch wrapper for a data view | 1 |
+
+### Meta
+
+| Tool | What it does | MCP tools exposed |
+|---|---|---|
+| `mcp-tool-factory` | Scaffold + wire + verify new MCP tools in this package — the executable form of the mcp-server-builder skill | 3 |
+| `mcp-tool-improviser` | Analyze + improve MCP tools across 7 dimensions — proposed diffs, apply, rollback | 4 |
+| `docs-generator` | Generate a README (from an MCP tool) or an API reference (from a TS module + JSDoc) | 2 |
 
 ---
 

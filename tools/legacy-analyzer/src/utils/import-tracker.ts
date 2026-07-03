@@ -41,6 +41,24 @@ export async function buildImportGraph(rootDir: string): Promise<ImportGraph> {
   return graph;
 }
 
+// resolveImportPath is called once per import statement across every file in the
+// repo (from buildImportGraph and several analyzer tools), and used to do
+// `allFiles.includes(candidate)` — an O(n) linear scan — up to 9 times per call.
+// On a 10k-file repo that's up to 90k comparisons per import, which is what made
+// the aggregate analyze-legacy-app scale far worse than linear. Cache a Set per
+// distinct `allFiles` array (callers pass the same array reference across a whole
+// analysis run) so each lookup is O(1) instead.
+// (QA harness regression: 10k-file synthetic repo — verified fixed below.)
+const fileSetCache = new WeakMap<string[], Set<string>>();
+function toFileSet(allFiles: string[]): Set<string> {
+  let set = fileSetCache.get(allFiles);
+  if (!set) {
+    set = new Set(allFiles);
+    fileSetCache.set(allFiles, set);
+  }
+  return set;
+}
+
 /**
  * Resolve an import specifier to an actual file path
  */
@@ -66,17 +84,19 @@ export function resolveImportPath(
     resolved = path.resolve(rootDir, specifier.startsWith('/') ? specifier.slice(1) : specifier);
   }
 
+  const fileSet = toFileSet(allFiles);
+
   // Try with extensions
   const extensions = ['.js', '.jsx', '.ts', '.tsx', '/index.js', '/index.jsx', '/index.ts', '/index.tsx'] as const;
   for (const ext of extensions) {
     const candidate = resolved + ext;
-    if (allFiles.includes(candidate)) {
+    if (fileSet.has(candidate)) {
       return candidate;
     }
   }
 
   // Try exact match
-  if (allFiles.includes(resolved)) {
+  if (fileSet.has(resolved)) {
     return resolved;
   }
 
@@ -158,6 +178,11 @@ export function findCrossFeatureImports(
 ): { from: string; to: string; importPath: string }[] {
   const crossFeature: { from: string; to: string; importPath: string }[] = [];
   const srcPath = path.join(rootDir, srcDir);
+  // Hoisted out of the loop below: Object.keys(graph) was previously called once
+  // per import (across every file), rebuilding the same array — and therefore a
+  // fresh, uncached Set inside resolveImportPath — on every call. Building it once
+  // lets resolveImportPath's Set cache actually pay off across this whole scan.
+  const graphFiles = Object.keys(graph);
 
   for (const [file, data] of Object.entries(graph)) {
     const relFile = path.relative(srcPath, file);
@@ -168,7 +193,7 @@ export function findCrossFeatureImports(
     for (const imp of data.imports) {
       if (!imp.source.startsWith('.')) continue;
 
-      const resolved = resolveImportPath(file, imp.source, rootDir, Object.keys(graph));
+      const resolved = resolveImportPath(file, imp.source, rootDir, graphFiles);
       if (!resolved) continue;
 
       const relResolved = path.relative(srcPath, resolved);
