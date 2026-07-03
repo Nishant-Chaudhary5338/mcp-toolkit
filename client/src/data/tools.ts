@@ -402,6 +402,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/craconfig-analyzer',
     example: '{ "path": "/path/to/cra-app" }',
   },
+  {
+    id: 'dependency-remapper',
+    name: 'dependency-remapper',
+    category: 'CRA→Vite',
+    description: 'Map CRA dependencies to a Vite plan — what to remove (react-scripts, craco, node-sass…), what to add (vite, plugin-react, vitest, jsdom, sass, svgr…), and what has no known equivalent.',
+    actions: ['plan_remap'],
+    serverPath: 'tools/dependency-remapper',
+    example: '{ "path": "/path/to/cra-app", "svgr": true }',
+  },
 
   // ── Boilerplate ───────────────────────────────────────────────────────────
   {
