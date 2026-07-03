@@ -383,6 +383,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/zustand-store-generator',
     example: '{ "name": "filter", "state": [{ "name": "query", "type": "string" }] }',
   },
+  {
+    id: 'svg-to-component',
+    name: 'svg-to-component',
+    category: 'Boilerplate',
+    description: 'Convert raw SVG into a typed, tree-shakeable React component that spreads SVGProps and optionally uses currentColor — SVGR-grade, no build step.',
+    actions: ['convert_svg'],
+    serverPath: 'tools/svg-to-component',
+    example: '{ "path": "src/icons/arrow.svg" }',
+  },
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
