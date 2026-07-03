@@ -67,7 +67,7 @@ const REFACTOR_PLAN_SCHEMA = {
 const TOOLS = [
   {
     name: 'validate-refactor-plan',
-    description: 'Validate refactor plan: ensure paths exist, no duplicate destinations, no conflicting moves',
+    description: "Validate a refactor plan before executing it — checks that every source path exists, destinations are unique, and no moves conflict. Returns { valid, errors, warnings }. Run this first; a plan must pass here before create-target-structure/move-files. Example: { path: '/app', refactorPlan: { moves: [{ from, to }] } }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -79,7 +79,7 @@ const TOOLS = [
   },
   {
     name: 'create-target-structure',
-    description: 'Create target directory structure for refactoring',
+    description: "Create the destination directory structure for a refactor plan (and an optional backup first). Returns { created: string[], backupPath }. Safe/idempotent — existing directories are left untouched. Example: { path: '/app', refactorPlan, backupPath: '/app/.backup' }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -92,7 +92,7 @@ const TOOLS = [
   },
   {
     name: 'move-files',
-    description: 'Move files according to refactor plan',
+    description: "Move files to their planned destinations (backing up first). Returns { moved: Record<oldPath,newPath>, backupPath }. Pair with update-imports afterward so references stay valid; use rollback-on-failure if a later step fails. Example: { path: '/app', refactorPlan, backupPath }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -105,7 +105,7 @@ const TOOLS = [
   },
   {
     name: 'update-imports',
-    description: 'Update relative imports after file moves using AST (no regex)',
+    description: "Rewrite relative import paths across the project after files move, using an AST (not regex) so only real imports change. Returns { updatedFiles, importsUpdated }. Pass the movedFiles map from move-files. Example: { path: '/app', refactorPlan, movedFiles: { 'src/a.ts': 'src/x/a.ts' } }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -122,7 +122,7 @@ const TOOLS = [
   },
   {
     name: 'rename-files',
-    description: 'Rename files according to naming standardization plan',
+    description: "Rename files per the plan's `renames` (backing up first) and update their imports. Returns { renamed, backupPath }. Example: { path: '/app', refactorPlan: { renames: [{ from, to }] }, backupPath }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -135,7 +135,7 @@ const TOOLS = [
   },
   {
     name: 'split-modules',
-    description: 'Split large utility files into smaller modules',
+    description: "Split oversized modules into smaller files per the plan's `splits`, creating the new files and leaving TODO markers for content to move. Returns { splitFiles, created }. Review the output before committing. Example: { path: '/app', refactorPlan: { splits: [{ file, proposedFiles }] }, backupPath }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -148,7 +148,7 @@ const TOOLS = [
   },
   {
     name: 'create-index-files',
-    description: 'Generate barrel export index.ts files for directories',
+    description: "Generate barrel `index.ts` re-export files for the refactored directories so imports stay clean. Returns { indexFiles: string[] }. Example: { path: '/app', refactorPlan }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -160,7 +160,7 @@ const TOOLS = [
   },
   {
     name: 'validate-build',
-    description: 'Run build command and detect errors',
+    description: "Run the project's build command and detect errors — the safety gate after a refactor. Returns { success, errors: string[], output }. If it fails, call rollback-on-failure. Example: { path: '/app', buildCommand: 'npm run build' }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -172,7 +172,7 @@ const TOOLS = [
   },
   {
     name: 'rollback-on-failure',
-    description: 'Revert all changes from backup',
+    description: "Restore the project from a backup after a failed refactor — reverses moves/renames and falls back to a full re-copy from the backup. Returns { restored, backupPath }. Called automatically by apply-refactor on build failure, or manually. Example: { path: '/app', backupPath: '/app/.backup' }.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -184,7 +184,7 @@ const TOOLS = [
   },
   {
     name: 'apply-refactor',
-    description: 'Apply full refactor pipeline with automatic rollback on failure',
+    description: "Execute the entire refactor pipeline end-to-end (validate -> backup -> create structure -> move -> update imports -> rename -> split -> barrels -> validate build) and automatically roll back to the backup if the build fails. Returns { success, steps, rolledBack, backupPath }. Set dryRun:true to preview. Example: { path: '/app', refactorPlan, dryRun: true, buildCommand: 'npm run build' }.",
     inputSchema: {
       type: 'object',
       properties: {
