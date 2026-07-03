@@ -4,7 +4,7 @@ import { renderReportHTML } from '@mcp-showcase/ui-kit';
 import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 // ============================================================================
 // TYPES
@@ -346,8 +346,14 @@ class DepAuditorServer extends McpServerBase {
           const allDeps = { ...pkg.pkg.dependencies, ...pkg.pkg.devDependencies };
           for (const [dep, declared] of Object.entries(allDeps)) {
             try {
-              const latestVersion = execSync(`npm view ${dep} version 2>/dev/null`, {
-                encoding: 'utf-8', timeout: 10000,
+              // `dep` is a dependency-name key read straight from the scanned
+              // repo's package.json — untrusted input if the repo being audited
+              // isn't your own. execFileSync passes it as a literal argv entry
+              // (no shell), closing the command-injection vector execSync's
+              // string interpolation opened (QA fuzz finding: a crafted
+              // dependency name like `foo; rm -rf ~` would otherwise execute).
+              const latestVersion = execFileSync('npm', ['view', dep, 'version'], {
+                encoding: 'utf-8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'],
               }).trim();
               const cleanDeclared = declared.replace(/[^0-9.]/g, '');
               if (latestVersion && cleanDeclared !== latestVersion) {

@@ -51,4 +51,29 @@ describe('runWorkflow — schema_to_feature', () => {
     expect(() => runWorkflow({ input: sample, routine: 'nope' })).toThrow();
     expect(() => runWorkflow({})).toThrow();
   });
+
+  it('passes the review gate across all 4 dataLayer x router combinations (composition matrix)', () => {
+    // QA composition sweep: every generator is individually tested per
+    // dataLayer/router, but nothing previously exercised all 4 combinations
+    // through the full composed pipeline in one pass.
+    const dataLayers = ['rtk', 'tanstack'] as const;
+    const routers = ['rr7', 'next'] as const;
+    for (const dataLayer of dataLayers) {
+      for (const router of routers) {
+        const r = runWorkflow({ input: sample, baseEndpoint: '/api/articles', dataLayer, router });
+        expect(r.passed, `dataLayer=${dataLayer} router=${router}`).toBe(true);
+        expect(r.dataLayer).toBe(dataLayer);
+        expect(r.router).toBe(router);
+        expect(r.files.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('is idempotent — running the same input twice produces identical output (QA composition regression)', () => {
+    const a = runWorkflow({ input: sample, baseEndpoint: '/api/articles', dataLayer: 'rtk', router: 'rr7' });
+    const b = runWorkflow({ input: sample, baseEndpoint: '/api/articles', dataLayer: 'rtk', router: 'rr7' });
+    expect(a.files).toEqual(b.files);
+    expect(a.journal).toEqual(b.journal);
+    expect(a.grade).toBe(b.grade);
+  });
 });

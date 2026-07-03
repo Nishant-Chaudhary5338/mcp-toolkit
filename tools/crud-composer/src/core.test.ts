@@ -67,6 +67,21 @@ describe('composeCrud — Next App Router', () => {
   });
 });
 
+describe('composeCrud — resource name with special characters (QA fuzz regression)', () => {
+  it('sanitizes the resource-name export identifier via camel(), not the raw resource string', () => {
+    // Found fuzzing crud-composer with an adversarial resource name: it built
+    // `export const ${fs.resource}Routes` directly instead of going through
+    // the shared naming helpers (unlike every other identifier in this file,
+    // which is already derived from pascal(fs.resource)), producing an
+    // unterminated string literal / invalid identifier.
+    const weird: FieldSchema = { ...schema, resource: "thing's-2.0!" };
+    const out = composeCrud(weird, { router: 'rr7' });
+    if (!out.ok) throw new Error(out.error);
+    const { code } = out.result.files[0]!;
+    expect(code).toMatch(/export const [A-Za-z_$][A-Za-z0-9_$]*Routes: RouteObject\[\]/);
+  });
+});
+
 describe('composeCrud — errors', () => {
   it('rejects a non-FieldSchema and unknown router', () => {
     expect(composeCrud({ x: 1 }).ok).toBe(false);

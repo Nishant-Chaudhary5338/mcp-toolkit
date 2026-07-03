@@ -6,7 +6,7 @@
 // ============================================================================
 
 import type { FieldSchema, Field } from '@mcp-showcase/shared';
-import { isFieldSchema } from '@mcp-showcase/shared';
+import { isFieldSchema, pascal } from '@mcp-showcase/shared';
 
 export interface GenerateZodResult {
   code: string;
@@ -18,20 +18,6 @@ export interface GenerateZodResult {
 export type GenerateZodOutcome =
   | { ok: true; result: GenerateZodResult }
   | { ok: false; error: string };
-
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/** PascalCase a resource name, e.g. "blog_post" → "BlogPost". */
-function pascal(s: string): string {
-  return s
-    .replace(/[_-]+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map(cap)
-    .join('');
-}
 
 /** The Zod expression for a single field (without the trailing optional). */
 function zodBase(field: Field): string {

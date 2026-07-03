@@ -57,8 +57,11 @@ export function analyzeCompiler(code: string, _file = 'component'): CompilerResu
 export function stripMemoization(code: string): string {
   let out = code;
   // const x = useMemo(() => EXPR, [deps]);  ->  const x = EXPR;
-  out = out.replace(/=\s*useMemo\(\(\)\s*=>\s*([\s\S]*?),\s*\[[^\]]*\]\s*\)/g, '= $1');
+  // Bounded to 2000 chars: real memoized bodies are short, and an unbounded
+  // [\s\S]*? here is quadratic on adversarial input (many "useMemo("/"useCallback("
+  // occurrences with no matching close) — found via QA fuzz timing.
+  out = out.replace(/=\s*useMemo\(\(\)\s*=>\s*([\s\S]{0,2000}?),\s*\[[^\]]*\]\s*\)/g, '= $1');
   // const f = useCallback((args) => {...}, [deps]);  ->  const f = (args) => {...};
-  out = out.replace(/=\s*useCallback\((\([^)]*\)\s*=>\s*[\s\S]*?),\s*\[[^\]]*\]\s*\)/g, '= $1');
+  out = out.replace(/=\s*useCallback\((\([^)]*\)\s*=>\s*[\s\S]{0,2000}?),\s*\[[^\]]*\]\s*\)/g, '= $1');
   return out;
 }

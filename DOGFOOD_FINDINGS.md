@@ -6,6 +6,84 @@
 
 ---
 
+## 🟢 cra-to-vite real apply + FieldSchema fuzz matrix + security hardening — ✅ FIXED
+
+Deepest QA pass yet: ran `cra-to-vite` end-to-end with a **real `dryRun:false` apply** (not just dry-run review) against a genuine `create-react-app` CLI output — real `npm install`, real `vite build`, real `vitest run` — then built a fuzz harness (`mcp-toolkit-qa/harness/fuzz-schema.mjs`) that feeds 14 adversarial `FieldSchema`s and 8 adversarial JSON samples into every CRUD-factory generator and syntax-checks the output via `ts.transpileModule`. Separately audited every `execSync`/`readFileSync` call for injection and traversal risk.
+
+### cra-to-vite real-apply pipeline (7 bugs)
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| C1 | P1 | `env-var-migrator` | Rewrote `process.env.REACT_APP_X` → `import.meta.env.VITE_X` **inside `setupProxy.js`** — a Node/CommonJS file loaded via `require()` by the dev server, not bundled by Vite. Produces a hard SyntaxError; only found by running the real apply, not dry-run. | ✅ FIXED — `shouldSkipEnvRewrite()` predicate skips `setupProxy.js`. |
+| C2 | P1 | `jest-to-vitest-migrator` | Fixed import list `{ describe, it, expect, vi, beforeEach, afterEach }` never included `test` — CRA's default `App.test.tsx` uses global `test()`, not `it()` → `ReferenceError` at runtime. | ✅ FIXED — import list built dynamically from which globals are actually referenced in the file. |
+| C3 | P2 | `jest-to-vitest-migrator` | "used globals" scan read raw source **including comments** — CRA's own `setupTests.ts` has `// expect(...)` in a comment, injecting an unused `import { expect }` that trips `noUnusedLocals`. | ✅ FIXED — scans a comment-stripped copy of the source. |
+| C4 | P1 | `jest-to-vitest-migrator` | `@testing-library/jest-dom`'s bare import only patches Jest's global `expect` — under Vitest's separate Chai-based `expect`, every custom matcher throws `Invalid Chai property`. | ✅ FIXED — rewrites to the `/vitest` subpath (both `import '...'` and `from '...'` forms). |
+| C5 | P1 | `jest-to-vitest-migrator` | `setupTests.ts` — exactly where the jest-dom import lives — was never scanned at all; the file-match glob only covered `*.test.*`/`*.spec.*`. | ✅ FIXED — `isMigratableTestFile()` also matches `setupTests.ts`/`.js`. |
+| C6 | P1 | `vite-project-scaffolder` | No tool in the pipeline ever generated a Vitest config (jsdom environment, setupFiles) — every migrated app's tests failed immediately with no test environment. | ✅ FIXED — added `vitest`/`vitestSetupFile` options; `defineConfig` sourced from `vitest/config` when requested; generates a `test: {...}` block. |
+| C7 | P1 | `codemod-runner` | `default-react-import-drop` blindly stripped `import React from 'react'` even when the file still used `React.StrictMode`/`.Fragment`/`.forwardRef` — broke `main.tsx`, including the scaffolder's **own** generated `main.tsx`. | ✅ FIXED — negative-lookahead regex `(?![\s\S]*React\.)`; verified for both correctness and ReDoS-safety (8ms on a 200k-line synthetic file) before shipping. |
+
+Also fixed: `cra-to-vite`'s `deriveScaffoldOptions(profile, ...)` silently dropped `hasSetupTests` because the real profile nests it under `profile.jestConfig.hasSetupTests` — TypeScript's structural typing allowed this to compile without error. Caught by code review before it caused a runtime bug, not by a failing test. Improved `manualReview` guidance to warn that `loadEnv` must be imported from `'vite'`, not `'vitest/config'` (the scaffolded `vite.config.ts`'s `defineConfig` source, an easy real mistake to make by hand).
+
+### FieldSchema fuzz matrix (systemic identifier-safety bug, ~8 tools)
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| F1 | P0 | `@mcp-showcase/shared` (`naming.ts`) | `pascal()`/`camel()` only normalized `_`/`-` to spaces — any other punctuation, apostrophe, or non-ASCII character rode along untouched, e.g. `pascal("thing's-2.0!")` → `"Thing's2.0!"`, an invalid TS identifier. Broke the resource-name class of bug across **every** generator that names a type from `pascal(resource)`. | ✅ FIXED — strips all non-alphanumeric characters per word, falls back to `"Resource"` if nothing survives, prefixes `_` if the result would start with a digit. |
+| F2 | P0 | `infer-fields` | Field names come straight from arbitrary API-response/OpenAPI keys and are interpolated as bare identifiers/object-keys/`register()` args downstream — no generator validates them. | ✅ FIXED — `toSafeIdentifier()` sanitizes at the one point field names enter the pipeline; empty-after-sanitizing fields are skipped; collisions after sanitizing are deduped; the human-readable `label` is still derived from the original, un-sanitized key. |
+| F3 | P0 | `@mcp-showcase/shared` (`fieldSchema.ts`) | A **hand-built** `FieldSchema` (bypassing `infer-fields`) can still carry unsafe field names — silently rewriting them risks a mismatch between the generated identifier and the real API key, which is worse than a clean rejection. | ✅ FIXED — `isFieldSchema()` (already called first by every generator) now also rejects any field whose `name` isn't a valid JS identifier. |
+| F4 | P1 | `zod-schema-generator` | Had its own **local duplicate** of `pascal()`/`cap()` instead of importing the shared, sanitizing helper — inherited the F1 bug independently even after F1 was fixed elsewhere. | ✅ FIXED — duplicate deleted, imports `pascal` from `@mcp-showcase/shared`. |
+| F5 | P1 | `crud-composer` | `export const ${fs.resource}Routes` used the raw, un-sanitized `resource` string directly instead of going through `pascal()`/`camel()` like every other identifier in the file. | ✅ FIXED — `camel(fs.resource)`. |
+| F6 | P2 | `form-generator`, `detail-generator` | Field `label`s and `<select>` `enumValues` are arbitrary text (quotes, backticks, markup like `</script><script>`) interpolated raw into JSX text/attributes — broke the generated component's syntax and, for markup, would have rendered as live HTML. | ✅ FIXED — rendered via JSX expression containers + `JSON.stringify()` instead of raw interpolation (`{${JSON.stringify(label)}}`), which is always syntactically valid and can never be parsed as markup. |
+| F7 | P2 | `table-generator` | Column `header` interpolated `label` into a single-quoted JS string literal — broke on an embedded apostrophe (e.g. `"it's"`). | ✅ FIXED — `JSON.stringify(f.label)` instead of raw interpolation. |
+
+Final fuzz-matrix rerun: **zero findings** (no crashes, timeouts, or syntax errors) across all 14 schema cases × 8 generators + 8 `infer-fields` edge-JSON cases. Every fix has a dedicated regression test; full monorepo build + test suite green after each fix.
+
+**Duplicate-`pascal()` follow-up (not fixed — logged for a future pass):** `svg-to-component`, `mcp-tool-factory`, `states-scaffolder`, `type-from-json`, and `zustand-store-generator` each carry their own local `pascal()` copy (with 4 different fallback words: `'Icon'`, none, `'Resource'`, `'Value'`, `'Store'`) instead of importing the shared, sanitizing helper. None of these were exercised by the FieldSchema fuzz harness (they take non-schema input — filenames, tool specs, arbitrary names), so no failure was measured, but they carry the same theoretical identifier-unsafety risk F1 fixed centrally. Left out of this pass because each needs individual attention to its fallback behavior, not a blanket find-replace.
+
+### Security hardening — command injection (CWE-78)
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| S1 | 🔴 P0 | `lighthouse-runner` | `url` and `outputPath` are **direct MCP tool-call arguments**, interpolated into a shell string wrapped in double-quotes with no escaping — a crafted `url`/`outputPath` (embedded quote, backtick, or `$(...)`) breaks out of the quoting and executes arbitrary shell commands. The most directly reachable injection vector found this session — no crafted repo needed, just a malicious tool call. | ✅ FIXED — `execSync` → `execFileSync` with an argv array; no shell, nothing to escape. |
+| S2 | 🟠 P1 | `dep-auditor` | `check_outdated` interpolated `dep` — a dependency-name **key read from the scanned repo's `package.json`** — directly into `npm view ${dep} version`. A malicious/crafted `package.json` (realistic if auditing a third-party or untrusted repo) could inject shell commands. | ✅ FIXED — `execFileSync('npm', ['view', dep, 'version'], ...)`. |
+| S3 | 🟡 P2 | `component-factory`, `component-fixer`, `component-reviewer` | All three built `npx tsc --noEmit --project ${tsconfigPath}` (and `component-reviewer` also `npx vitest run ${testFile}`) via string interpolation of a path derived from the caller's `path` argument. Lower severity than S1/S2 (requires an actual directory *named* with shell metacharacters, not just malicious file contents) but the same anti-pattern. | ✅ FIXED — `execFileSync` with argv arrays in all four call sites across the three tools. |
+
+`quality-pipeline`'s `execSync` calls were checked and are **not** vulnerable — their command strings are static; the only interpolated value is an internally-generated tmp-file path (`os.tmpdir()` + `Date.now()`), never caller-controlled. `json-viewer`'s `open`/`open_response` commands were also checked and are safe — the path is built from an `id` that's already sanitized to `[a-zA-Z0-9-_]` at generation (`generateId()`), so it can never carry shell metacharacters. `mcp-tool-factory` already used `execFileSync` correctly.
+
+### XSS — dashboard `esc()` path (no bug found, verified empirically)
+
+Read through `@mcp-showcase/shared`'s `renderDashboard` and `@mcp-showcase/ui-kit`'s `renderReportHTML`/`renderResultHTML` (including their embedded client-side runtime scripts) end-to-end: every dynamic value — titles, filenames, code, table cells, list items, drawer fields — is consistently routed through the same `esc()`/`E()` helper (escapes `&<>"'`) before HTML interpolation, both server-side and in the client-side `innerHTML`-building JS. No unescaped path found. Added `tools/shared/src/dashboard.test.ts` (7 tests) empirically confirming an XSS-shaped payload (`</script><img src=x onerror=alert(1)>&"'`) never survives unescaped through the title, code panel, files array, chip key/value, findings table, scalar list, or raw-JSON dump — so this is now a regression-guarded guarantee, not just a code-reading conclusion.
+
+### Composition testing
+
+Added a 4-combination (`dataLayer` × `router`) matrix test plus an explicit idempotency test (same input run twice → byte-identical `files`/`journal`/`grade`) to `workflow-runner/src/core.test.ts`. All 4 combinations pass the review gate.
+
+### Path/file adversarial matrix (partial — 12/30 tools empirically tested)
+
+Tested `a11y-autofixer`, `accessibility-checker`, `json-viewer`, `svg-to-component`, `dependency-remapper`, `review-gate`, `component-factory`, `react-compiler-migrator`, `codemod-runner`, `monorepo-manager`, `api-contract-differ` against path traversal, symlink escapes, missing paths, ~50MB files, binary files, and empty files/dirs.
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| P1 | 🟡 P2 | `component-factory` | `review_component`/`fix_component`/`improve_component` threw raw, uncaught exceptions on a non-existent path instead of returning the tool's own structured `{ok:false,...}` error shape. (Note: `McpServerBase`'s transport layer already catches any thrown exception and converts it to a valid MCP protocol error — so this was never a process crash or protocol break, just an inconsistent error shape vs. the tool's own convention.) | ✅ FIXED — wrapped all three handlers in try/catch, routed through `this.error()`. 3 regression tests added. |
+
+The other 10 tools tested: **PASS**, no crashes/hangs/OOM/escapes found.
+
+**Remaining 18 tools not empirically fuzzed this session** (`barrel-generator`, `bundle-budget-guard`, `cra-to-vite`, `craconfig-analyzer`, `dep-auditor`, `docs-generator`, `env-var-migrator`, `i18n-extractor`, `mcp-tool-factory`, `mcp-tool-improviser`, `performance-audit`, `quality-pipeline`, `redux-state-analyzer`, `render-analyzer`, `storybook-generator`, `webpack-config-translator`, `component-fixer`, `component-reviewer`): spot-reviewed by code inspection only. Two mitigating facts reduce the risk of this gap: (1) every tool extends `McpServerBase`, whose transport layer already catches any thrown exception and returns a clean MCP error — the "raw crash" bug class found in `component-factory` is architecturally capped toolkit-wide, not open-ended; (2) the write-path tools in this list (`cra-to-vite`, `mcp-tool-factory`, `storybook-generator`, `env-var-migrator`) have no sandbox-root concept by design — the caller-supplied path *is* the intended write location, the same trust model as a CLI tool, so path traversal isn't a meaningful vulnerability class for them. Genuine residual risk: hangs/OOM on pathologically huge input, not independently verified for these 18. **Flagged as a follow-up, not silently dropped.**
+
+### ReDoS timing sweep (quadratic blowup found + fixed)
+
+Empirically timed every regex flagged as having a catastrophic-backtracking shape (nested/adjacent unbounded quantifiers) across `tools/*/src/core.ts`.
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| R1 | 🟠 P1 | `docs-generator` | `EXPORT_RE`'s leading optional doc-comment group `(\/\*\*[\s\S]*?\*\/\s*)?` re-scans to end-of-string for every unterminated `/**` occurrence — quadratic. Measured: 8,000 reps (248KB) → 3.0s; 20,000–40,000 reps → hung past 8s. | ✅ FIXED — dropped the lazy leading group from the regex entirely; the doc-comment is now recovered via a bounded, linear backward string scan (`findLeadingDocBlock`). Verified byte-identical `cleanDoc()` output on valid input; adversarial 200k-line input now ~2ms. |
+| R2 | 🟠 P1 | `docs-generator` | `extractActions`'s `addTool(...)` regex had two sequential unbounded `[\s\S]*?` capture spans. Measured: 4,000 reps of an unterminated `addTool("` quote → 1.3s; 8,000 reps → 5.5s. | ✅ FIXED — both captures bounded to `[\s\S]{0,2000}?` (tool names/descriptions are realistically short strings). Post-fix: 50,000-line adversarial input → ~361ms. |
+| R3 | 🟠 P1 | `react-compiler-migrator` | `stripMemoization`'s `useMemo`/`useCallback` strip regexes each had an unbounded `[\s\S]*?` body span. Measured (adversarial unterminated `useMemo(`/`useCallback(` lines): n=1000→17-18ms, n=2000→68-71ms, n=4000→276-310ms, n=8000→1.1-1.3s, clean quadratic growth; n=50,000 hung past an 8s kill timeout. | ✅ FIXED — both bounded to `[\s\S]{0,2000}?` (memoized bodies are realistically short). Post-fix: 50,000-line adversarial input → ~362-367ms, comfortably under the 2s regression bound. |
+
+Also verified (measured, not just read) as safe: `codemod-runner`'s `default-react-import-drop` (fix C7 above, 8ms on a 200k-line synthetic file, verified earlier this session), `fix-failing-tests`'s parsing regexes (500KB–3MB adversarial inputs, ≤10ms), and `a11y-autofixer`'s img-alt regex (500KB adversarial single line, 0-1ms — the lookahead-based repetition isn't nested and stays linear) and `enforce-design-tokens`'s spacing lookaround regex (fixed-width literal, 0-1ms). The remaining regex inventory (`env-var-migrator`, `jest-to-vitest-migrator`, `i18n-extractor`, `infer-fields`, `svg-to-component`, `type-from-json`, `states-scaffolder`, `zustand-store-generator`, `visual-regression-setup`, `playwright-scaffolder`, `mcp-tool-factory`, `bundle-budget-guard`) was visually reviewed and confirmed to use simple, bounded, anchored patterns with no adjacent/nested unbounded quantifiers — not individually timed, since none matched the risk shape this sweep was looking for.
+
+---
+
 ## 🟢 Cross-app compile QA pass — 2026-07-04 — ✅ FIXED
 
 New QA infrastructure: [`mcp-toolkit-qa`](../mcp-toolkit-qa) (sibling repo) — 8 real, `npm install`-able fixture apps (default Vite+RTK+Tailwind, TanStack-only, Next 15 App Router, non-Vite/`tsc`-only, no-Tailwind/CSS-Modules, pnpm monorepo, real `create-react-app` CLI output, strict-`typescript-eslint`) plus a harness (`harness/run-qa.mjs`) that drives `workflow-runner`'s `schema_to_feature` against each and runs the fixture's **real build** — the layer-4 gap unit tests alone can't close (generated code compiling in an app with real, installed peer deps). This is distinct from the dogfood passes above, which drive tools against existing hand-written codebases; this harness generates fresh code into disposable fixtures on every run.

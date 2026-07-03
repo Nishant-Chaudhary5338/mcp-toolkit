@@ -9,7 +9,7 @@
 // ============================================================================
 
 import type { FieldSchema, Router } from '@mcp-showcase/shared';
-import { isFieldSchema, pascal } from '@mcp-showcase/shared';
+import { camel, isFieldSchema, pascal } from '@mcp-showcase/shared';
 
 export interface ComposedFile {
   path: string;
@@ -64,7 +64,7 @@ function ${Type}EditRoute() {
   return <${n.Edit} id={id ?? ''} />;
 }
 
-export const ${fs.resource}Routes: RouteObject[] = [
+export const ${camel(fs.resource)}Routes: RouteObject[] = [
   { path: '${base}', element: <${n.Table} /> },
   { path: '${base}/new', element: <${n.Create} /> },
   { path: '${base}/:id', element: <${Type}DetailRoute /> },

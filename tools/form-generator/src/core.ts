@@ -41,8 +41,12 @@ function control(f: Field): string {
     case 'boolean':
       return `<input type="checkbox" ${reg} className="h-4 w-4 rounded border" />`;
     case 'select': {
+      // Enum values are arbitrary strings (may contain quotes, backticks, "<",
+      // "&") — render via a JSX expression container + JSON.stringify() rather
+      // than raw string interpolation into an attribute/text node, which broke
+      // on quote- and markup-containing values (QA fuzz regression).
       const opts = (f.enumValues ?? [])
-        .map((v) => `\n            <option value="${v}">${v}</option>`)
+        .map((v) => `\n            <option value={${JSON.stringify(v)}}>{${JSON.stringify(v)}}</option>`)
         .join('');
       return `<select ${reg} ${INPUT}>${opts}\n          </select>`;
     }
@@ -62,8 +66,12 @@ function control(f: Field): string {
 }
 
 function fieldBlock(f: Field): string {
+  // f.label is arbitrary text (may contain "<", "&", quotes) — render as a JSX
+  // expression container, not raw JSX text, so it can never be parsed as
+  // markup (QA fuzz regression: a label like "</script><script>..." broke the
+  // generated component's JSX structure).
   return `        <div className="space-y-1">
-          <label htmlFor="${f.name}" className="block text-sm font-medium">${f.label}</label>
+          <label htmlFor="${f.name}" className="block text-sm font-medium">{${JSON.stringify(f.label)}}</label>
           ${control(f)}
           {errors.${f.name} && <p className="text-sm text-red-600">{errors.${f.name}.message}</p>}
         </div>`;

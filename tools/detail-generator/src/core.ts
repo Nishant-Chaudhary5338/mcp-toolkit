@@ -43,8 +43,11 @@ function valueExpr(f: Field): string {
 }
 
 function row(f: Field): string {
+  // f.label is arbitrary text — render via a JSX expression container so it
+  // can never be parsed as markup (QA fuzz regression, same class of bug as
+  // form-generator's field labels).
   return `        <div className="flex justify-between border-b py-2">
-          <dt className="font-medium text-gray-600">${f.label}</dt>
+          <dt className="font-medium text-gray-600">{${JSON.stringify(f.label)}}</dt>
           <dd className="text-gray-900">${valueExpr(f)}</dd>
         </div>`;
 }

@@ -21,7 +21,10 @@ export interface ApiRefResult {
 /** Grab the first two string-literal arguments of each addTool(...) call. */
 function extractActions(source: string): { name: string; description: string }[] {
   const actions: { name: string; description: string }[] = [];
-  const re = /this\.addTool\(\s*(['"`])([\s\S]*?)\1\s*,\s*(['"`])([\s\S]*?)\3/g;
+  // Bounded to 2000 chars per capture: names/descriptions are short strings,
+  // and an unbounded [\s\S]*? here is quadratic on adversarial input (many
+  // "addTool(" occurrences with an unterminated quote) — found via QA fuzz timing.
+  const re = /this\.addTool\(\s*(['"`])([\s\S]{0,2000}?)\1\s*,\s*(['"`])([\s\S]{0,2000}?)\3/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(source)) !== null) {
     const name = m[2];
@@ -72,7 +75,11 @@ ${sections || '_No tools registered._'}
   return { code, filename: `${toolName}.README.md`, toolName, actions };
 }
 
-const EXPORT_RE = /(\/\*\*[\s\S]*?\*\/\s*)?export\s+(?:async\s+)?(function|interface|type|const|class)\s+([a-zA-Z_][a-zA-Z0-9_]*)([^\n{=;]*)/g;
+// No leading `(\/\*\*[\s\S]*?\*\/\s*)?` group: that lazy span used to be quadratic on
+// adversarial input (many unterminated "/**" comments, each rescanned to end-of-string
+// looking for a "*/" that never comes) — found via QA fuzz timing. The optional doc-comment
+// is instead recovered below with a bounded, non-backtracking string scan.
+const EXPORT_RE = /export\s+(?:async\s+)?(function|interface|type|const|class)\s+([a-zA-Z_][a-zA-Z0-9_]*)([^\n{=;]*)/g;
 
 function cleanDoc(block: string | undefined): string {
   if (!block) return '';
@@ -85,11 +92,22 @@ function cleanDoc(block: string | undefined): string {
     .trim();
 }
 
+/** Find a `/** ... *\/` block immediately preceding `matchStart` (only whitespace between). */
+function findLeadingDocBlock(source: string, matchStart: number): string | undefined {
+  let end = matchStart;
+  while (end > 0 && /\s/.test(source[end - 1] as string)) end--;
+  if (end < 2 || source[end - 2] !== '*' || source[end - 1] !== '/') return undefined;
+  const start = source.lastIndexOf('/**', end - 2);
+  if (start === -1) return undefined;
+  return source.slice(start, end);
+}
+
 export function generateApiReference(source: string, filename = 'module'): ApiRefResult {
   const symbols: ApiRefResult['symbols'] = [];
   let m: RegExpExecArray | null;
   while ((m = EXPORT_RE.exec(source)) !== null) {
-    const [, docBlock, kind, name, tail] = m;
+    const [, kind, name, tail] = m;
+    const docBlock = findLeadingDocBlock(source, m.index);
     symbols.push({ kind, name, signature: `${kind} ${name}${(tail ?? '').replace(/\s+/g, ' ').trimEnd()}`.trim(), doc: cleanDoc(docBlock) });
   }
 

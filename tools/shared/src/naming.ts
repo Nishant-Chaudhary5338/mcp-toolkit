@@ -8,15 +8,25 @@ export function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** "blog_post" | "blog-post" | "blogPost" → "BlogPost". */
+/**
+ * "blog_post" | "blog-post" | "blogPost" → "BlogPost". Always returns a valid
+ * TS identifier: strips any character that isn't ASCII alphanumeric (quotes,
+ * punctuation, non-ASCII), falls back to "Resource" if nothing alphanumeric
+ * survives, and prefixes an underscore if the result would start with a
+ * digit. Found by fuzzing the CRUD-factory generators with adversarial
+ * resource names (e.g. "thing's-2.0!") — every generator emitted syntactically
+ * invalid TS/JSX because this shared helper didn't sanitize its input.
+ */
 export function pascal(s: string): string {
-  return s
+  const words = s
     .replace(/[_-]+/g, ' ')
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .split(' ')
-    .filter(Boolean)
-    .map((w) => cap(w.toLowerCase()))
-    .join('');
+    .map((w) => w.replace(/[^a-zA-Z0-9]/g, ''))
+    .filter(Boolean);
+  const result = words.map((w) => cap(w.toLowerCase())).join('');
+  if (!result) return 'Resource';
+  return /^[0-9]/.test(result) ? `_${result}` : result;
 }
 
 /** "blog_post" → "blogPost". */

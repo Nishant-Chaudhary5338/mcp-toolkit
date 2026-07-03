@@ -5,7 +5,7 @@ import { renderReportHTML } from '@mcp-showcase/ui-kit';
 import { toHealthReport } from './health-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -857,7 +857,10 @@ function runTypeScriptCheck(componentDir: string): { errors: string[]; passed: b
       return { errors: ['No tsconfig.json found'], passed: true };
     }
 
-    execSync(`npx tsc --noEmit --project ${tsconfigPath}`, {
+    // tsconfigPath is built from componentDir, caller-controlled input —
+    // execFileSync passes it as a literal argv entry (no shell), avoiding the
+    // injection risk of interpolating an untrusted path into a shell string.
+    execFileSync('npx', ['tsc', '--noEmit', '--project', tsconfigPath], {
       cwd: componentDir,
       stdio: 'pipe',
       timeout: 30000,
@@ -878,7 +881,10 @@ function runTests(componentDir: string, componentName: string): { passed: number
   }
 
   try {
-    const output = execSync(`npx vitest run ${testFile} --reporter=json 2>&1`, {
+    // testFile is derived from componentName/componentDir, caller-controlled —
+    // execFileSync passes it as a literal argv entry (no shell), avoiding the
+    // injection risk of interpolating an untrusted path into a shell string.
+    const output = execFileSync('npx', ['vitest', 'run', testFile, '--reporter=json'], {
       cwd: path.join(componentDir, '..', '..'),
       stdio: 'pipe',
       timeout: 60000,

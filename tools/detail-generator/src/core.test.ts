@@ -18,7 +18,7 @@ describe('generateDetail', () => {
     const out = generateDetail(schema, { dataLayer: 'rtk' });
     if (!out.ok) throw new Error(out.error);
     const { code } = out.result;
-    expect(code).toContain("<dt className=\"font-medium text-gray-600\">Title</dt>");
+    expect(code).toContain('<dt className="font-medium text-gray-600">{"Title"}</dt>');
     expect(code).toContain('{data.title}');
     expect(code).toContain('{data.body}');
     expect(out.result.componentName).toBe('ArticleDetail');
@@ -123,5 +123,14 @@ describe('generateDetail', () => {
     expect(generateDetail({ x: 1 }).ok).toBe(false);
     // @ts-expect-error runtime guard
     expect(generateDetail(schema, { dataLayer: 'swr' }).ok).toBe(false);
+  });
+
+  it('renders a label containing markup as a JSX expression, not raw JSX text (QA fuzz regression)', () => {
+    // Found fuzzing detail-generator: a label like "</script><script>..."
+    // broke the generated component's JSX structure when interpolated raw.
+    const s: FieldSchema = { ...schema, fields: [f('x', 'text', { label: '</script><script>alert(1)</script>' })] };
+    const out = generateDetail(s, { dataLayer: 'rtk' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('{"</script><script>alert(1)</script>"}');
   });
 });

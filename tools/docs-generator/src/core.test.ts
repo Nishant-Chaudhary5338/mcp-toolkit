@@ -26,6 +26,17 @@ describe('generateToolDocs', () => {
     expect(r.code).toContain('npx mcp-react-toolkit demo-tool');
     expect(r.filename).toBe('demo-tool.README.md');
   });
+
+  it('does not catastrophically backtrack on many unterminated addTool( calls (QA harness regression)', () => {
+    const lines: string[] = [];
+    for (let i = 0; i < 50000; i++) {
+      lines.push(`this.addTool('name${i}, unclosed quote description forever more text`);
+    }
+    const src = lines.join('\n');
+    const start = Date.now();
+    generateToolDocs(src);
+    expect(Date.now() - start).toBeLessThan(2000);
+  });
 });
 
 describe('generateApiReference', () => {
@@ -44,5 +55,17 @@ describe('generateApiReference', () => {
     const r = generateApiReference('const x = 1;', 'empty.ts');
     expect(r.symbols).toHaveLength(0);
     expect(r.code).toContain('No exports found');
+  });
+
+  it('does not catastrophically backtrack on many unterminated /** comments (QA harness regression)', () => {
+    const lines: string[] = [];
+    for (let i = 0; i < 50000; i++) {
+      lines.push(`/** unterminated doc comment number ${i} with no closing`);
+    }
+    lines.push('export function add(a, b) { return a + b; }');
+    const src = lines.join('\n');
+    const start = Date.now();
+    generateApiReference(src, 'big.ts');
+    expect(Date.now() - start).toBeLessThan(2000);
   });
 });

@@ -62,6 +62,20 @@ function plural(word: string): string {
   return `${word}s`;
 }
 
+/**
+ * Field names come straight from arbitrary API-response/OpenAPI keys and get
+ * interpolated as bare identifiers, object-literal keys, and register() calls
+ * across every downstream generator (zod-schema-generator, form-generator,
+ * etc.) — none of which validate them. This is the single point where field
+ * names enter the pipeline, so sanitize here rather than in every consumer.
+ * Non-identifier characters become "_"; a leading digit gets a "_" prefix;
+ * a name with nothing alphanumeric left is rejected (caller skips the field).
+ */
+function toSafeIdentifier(name: string): string {
+  const cleaned = name.replace(/[^a-zA-Z0-9_$]/g, '_').replace(/^[0-9]/, '_$&');
+  return /[a-zA-Z0-9]/.test(cleaned) ? cleaned : '';
+}
+
 // ── Type inference ───────────────────────────────────────────────────────────
 
 function typeFromValue(key: string, value: unknown): FieldType | null {
@@ -142,7 +156,7 @@ function buildField(
 ): Field {
   const label = toLabel(name);
   return {
-    name,
+    name: toSafeIdentifier(name),
     label,
     type,
     required,
@@ -211,7 +225,7 @@ function fieldsFromOpenApi(schema: Record<string, unknown>): Field[] {
   const required = new Set((schema['required'] as string[] | undefined) ?? []);
   const fields: Field[] = [];
   for (const [key, prop] of Object.entries(props)) {
-    if (SKIP.has(key) || typeof prop !== 'object' || prop === null) continue;
+    if (SKIP.has(key) || typeof prop !== 'object' || prop === null || !toSafeIdentifier(key)) continue;
     const isRequired = required.has(key);
     if (prop.$ref) {
       fields.push(buildField(key, 'relation', isRequired, { relation: relationFromRef(prop.$ref) }));
@@ -226,13 +240,13 @@ function fieldsFromOpenApi(schema: Record<string, unknown>): Field[] {
     if (!type) continue;
     fields.push(buildField(key, type, isRequired, type === 'select' ? { enumValues: prop.enum } : undefined));
   }
-  return fields;
+  return dedupeFieldNames(fields);
 }
 
 function fieldsFromSample(obj: Record<string, unknown>): Field[] {
   const fields: Field[] = [];
   for (const [key, value] of Object.entries(obj)) {
-    if (SKIP.has(key)) continue;
+    if (SKIP.has(key) || !toSafeIdentifier(key)) continue;
     // Nested object with its own id → relation.
     if (value && typeof value === 'object' && !Array.isArray(value) && ('id' in value || '_id' in value)) {
       fields.push(buildField(key, 'relation', true, { relation: { resource: singular(key.toLowerCase()), labelKey: 'name' } }));
@@ -248,7 +262,17 @@ function fieldsFromSample(obj: Record<string, unknown>): Field[] {
     if (!type) continue;
     fields.push(buildField(key, type, true));
   }
-  return fields;
+  return dedupeFieldNames(fields);
+}
+
+/** Two source keys can sanitize to the same identifier (e.g. "first-name" / "first_name") — suffix later duplicates. */
+function dedupeFieldNames(fields: Field[]): Field[] {
+  const seen = new Map<string, number>();
+  return fields.map((field) => {
+    const count = seen.get(field.name) ?? 0;
+    seen.set(field.name, count + 1);
+    return count === 0 ? field : { ...field, name: `${field.name}_${count}` };
+  });
 }
 
 // ── Public entry point ───────────────────────────────────────────────────────

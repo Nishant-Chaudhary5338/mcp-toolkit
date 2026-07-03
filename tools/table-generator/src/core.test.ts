@@ -18,14 +18,14 @@ describe('generateTable', () => {
     const out = generateTable(schema, { dataLayer: 'rtk' });
     if (!out.ok) throw new Error(out.error);
     expect(out.result.columns).toEqual(['title', 'views']);
-    expect(out.result.code).toContain("{ accessorKey: 'title', header: 'Title' }");
+    expect(out.result.code).toContain('{ accessorKey: \'title\', header: "Title" }');
     expect(out.result.code).not.toContain("accessorKey: 'body'");
   });
 
   it('respects enableSorting: false', () => {
     const out = generateTable({ ...schema, fields: [f('title', 'text', { sortable: false })] });
     if (!out.ok) throw new Error(out.error);
-    expect(out.result.code).toContain("{ accessorKey: 'title', header: 'Title', enableSorting: false }");
+    expect(out.result.code).toContain('{ accessorKey: \'title\', header: "Title", enableSorting: false }');
   });
 
   it('wires the rtk list hook', () => {
@@ -82,5 +82,14 @@ describe('generateTable', () => {
     const out = generateTable(schema);
     if (!out.ok) throw new Error(out.error);
     expect(out.result.code).toContain("String((cell.getValue() as string | number | boolean | null | undefined) ?? '—')");
+  });
+
+  it('renders a column header containing a quote via JSON.stringify, not a broken string literal (QA fuzz regression)', () => {
+    // Found fuzzing table-generator: a label like "it's" broke the
+    // single-quoted `header: '...'` object-literal property when interpolated raw.
+    const s: FieldSchema = { ...schema, fields: [{ ...f('title', 'text'), label: "it's" }] };
+    const out = generateTable(s);
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('header: "it\'s"');
   });
 });

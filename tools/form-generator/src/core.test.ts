@@ -39,9 +39,31 @@ describe('generateForm — create / rtk', () => {
     const { code } = out.result;
     expect(code).toContain('<textarea {...register(\'body\')}');
     expect(code).toContain('<select {...register(\'status\')}');
-    expect(code).toContain('<option value="draft">draft</option>');
+    expect(code).toContain('<option value={"draft"}>{"draft"}</option>');
     expect(code).toContain("valueAsNumber: true");
     expect(code).toContain('<input type="checkbox"');
+  });
+});
+
+describe('generateForm — arbitrary label/enum text (QA fuzz regression)', () => {
+  // Found fuzzing form-generator: labels and enum values are arbitrary text
+  // (may contain quotes, backticks, or markup like "</script>") and were
+  // interpolated raw into JSX attributes/text, breaking the generated
+  // component's syntax. Now rendered via JSX expression containers +
+  // JSON.stringify(), which is always syntactically valid and HTML-safe.
+  it('renders a label containing markup as a JSX expression, not raw JSX text', () => {
+    const s: FieldSchema = { ...schema, fields: [f('x', 'text', { label: '</script><script>alert(1)</script>' })] };
+    const out = generateForm(s, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('{"</script><script>alert(1)</script>"}');
+  });
+
+  it('renders enum values containing quotes/backticks as JSX expressions', () => {
+    const s: FieldSchema = { ...schema, fields: [f('status', 'select', { enumValues: [`it's`, '"quoted"', '`backtick`'] })] };
+    const out = generateForm(s, { mode: 'create' });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain('<option value={"it\'s"}>{"it\'s"}</option>');
+    expect(out.result.code).toContain('<option value={"\\"quoted\\""}>{"\\"quoted\\""}</option>');
   });
 });
 

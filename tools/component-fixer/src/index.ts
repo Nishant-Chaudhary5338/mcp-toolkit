@@ -5,7 +5,7 @@ import { renderResultHTML } from '@mcp-showcase/ui-kit';
 import { toResultReport } from './result-report.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createRequire } from 'module';
@@ -171,7 +171,10 @@ function runTypeScriptCheck(componentDir: string): { errors: string[]; passed: b
     if (!tsconfigPath) {
       return { errors: ['No tsconfig.json found'], passed: false };
     }
-    execSync(`npx tsc --noEmit --project ${tsconfigPath}`, {
+    // tsconfigPath is built from componentDir, caller-controlled input —
+    // execFileSync passes it as a literal argv entry (no shell), avoiding the
+    // injection risk of interpolating an untrusted path into a shell string.
+    execFileSync('npx', ['tsc', '--noEmit', '--project', tsconfigPath], {
       cwd: componentDir,
       stdio: 'pipe',
       timeout: 30000,

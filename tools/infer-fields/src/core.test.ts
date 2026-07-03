@@ -99,6 +99,41 @@ describe('inferFields — naming + presentation defaults', () => {
   });
 });
 
+describe('inferFields — identifier-unsafe field names (QA fuzz regression)', () => {
+  // Found fuzzing the CRUD-factory generators with adversarial FieldSchemas:
+  // field.name is interpolated as a bare identifier / object key / register()
+  // argument across every downstream generator, none of which validate it.
+  // infer-fields is the single entry point that turns arbitrary API keys into
+  // field names, so it sanitizes here rather than pushing validation into
+  // every consumer.
+  it('sanitizes names with spaces and hyphens into valid identifiers', () => {
+    const s = schema(inferFields({ input: { 'first name': 'Ann', 'last-name': 'Lee' } }));
+    for (const f of s.fields) expect(f.name).toMatch(/^[A-Za-z_$][A-Za-z0-9_$]*$/);
+  });
+
+  it('sanitizes non-ASCII field names instead of emitting them raw', () => {
+    const s = schema(inferFields({ input: { '名前': 'x', 'emoji😀': 'y' } }));
+    for (const f of s.fields) expect(f.name).toMatch(/^[A-Za-z_$][A-Za-z0-9_$]*$/);
+  });
+
+  it('skips a field whose name has nothing alphanumeric left after sanitizing', () => {
+    const r = inferFields({ input: { '!!!': 'x', title: 'ok' } });
+    const s = schema(r);
+    expect(s.fields.map((f) => f.name)).toEqual(['title']);
+  });
+
+  it('dedupes field names that collide after sanitizing', () => {
+    const s = schema(inferFields({ input: { 'first-name': 'a', first_name: 'b' } }));
+    const names = s.fields.map((f) => f.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('keeps the human-readable label derived from the original key, not the sanitized name', () => {
+    const s = schema(inferFields({ input: { 'first name': 'Ann' } }));
+    expect(s.fields[0]?.label).toBe('First Name');
+  });
+});
+
 describe('inferFields — errors', () => {
   it('rejects invalid JSON strings', () => {
     const r = inferFields({ input: '{not json' });

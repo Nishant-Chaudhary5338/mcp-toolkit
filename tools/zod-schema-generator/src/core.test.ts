@@ -76,4 +76,17 @@ describe('generateZodSchema', () => {
   it('rejects an empty field list', () => {
     expect(generateZodSchema(makeSchema([])).ok).toBe(false);
   });
+
+  it('produces a valid identifier for a resource name with special characters (QA fuzz regression)', () => {
+    // Found fuzzing this tool: it had its own local pascal()/cap() duplicate
+    // instead of importing the shared, sanitizing helper — so it inherited
+    // the pre-fix bug independently and needed its own fix (delete the
+    // duplicate, import @mcp-showcase/shared's pascal()).
+    const out = generateZodSchema(makeSchema([field('name', 'text')]));
+    const weird = { ...makeSchema([field('name', 'text')]), resource: "thing's-2.0!" };
+    const r = generateZodSchema(weird);
+    if (!out.ok || !r.ok) throw new Error('expected ok');
+    expect(r.result.typeName).toMatch(/^[A-Za-z_$][A-Za-z0-9_$]*$/);
+    expect(r.result.schemaName).toMatch(/^[A-Za-z_$][A-Za-z0-9_$]*$/);
+  });
 });

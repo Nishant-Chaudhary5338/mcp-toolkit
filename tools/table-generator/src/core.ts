@@ -32,8 +32,11 @@ export interface GenerateTableOptions {
 }
 
 function columnDef(f: Field): string {
+  // f.label is arbitrary text and can contain a single quote — JSON.stringify
+  // it instead of interpolating into a single-quoted literal (QA fuzz
+  // regression: a label like "it's" broke the object literal).
   const sort = f.table.sortable ? '' : ', enableSorting: false';
-  return `  { accessorKey: '${f.name}', header: '${f.label}'${sort} },`;
+  return `  { accessorKey: '${f.name}', header: ${JSON.stringify(f.label)}${sort} },`;
 }
 
 function listHook(Type: string, dataLayer: DataLayer): { importLine: string; call: string } {
