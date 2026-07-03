@@ -438,6 +438,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/vite-project-scaffolder',
     example: '{ "appName": "My App", "svgr": true, "proxyTarget": "http://localhost:4000" }',
   },
+  {
+    id: 'webpack-config-translator',
+    name: 'webpack-config-translator',
+    category: 'CRA→Vite',
+    description: 'Best-effort translation of a webpack/CRACO config into Vite equivalents — aliases, plugin/loader classification (native/needs-plugin/unsupported), and an explicit manual-review list.',
+    actions: ['translate_webpack'],
+    serverPath: 'tools/webpack-config-translator',
+    example: '{ "path": "craco.config.js" }',
+  },
 
   // ── Boilerplate ───────────────────────────────────────────────────────────
   {

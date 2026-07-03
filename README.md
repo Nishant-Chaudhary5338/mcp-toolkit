@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 57 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 58 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 57 tools
+npx mcp-react-toolkit --list            # list all 58 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      57 MCP server packages — each independently buildable and runnable
+tools/      58 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 57 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 58 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -164,6 +164,7 @@ Migrate a Create-React-App project to Vite: analyze → plan → scaffold → mi
 | `env-var-migrator` | Rewrite REACT_APP_ → VITE_ / import.meta.env + rename .env keys, flag dynamic | 1 |
 | `jest-to-vitest-migrator` | jest.* → vi.* + vitest import + flag mock factories | 1 |
 | `vite-project-scaffolder` | Generate the Vite shell — vite.config, index.html, main.tsx, strict tsconfig | 1 |
+| `webpack-config-translator` | Translate webpack/CRACO → Vite (aliases, plugins, loaders) + manual-review list | 1 |
 
 ### Boilerplate
 
