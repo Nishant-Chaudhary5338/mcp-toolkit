@@ -26,6 +26,16 @@ interface MonorepoPackage {
 // HELPERS
 // ============================================================================
 
+/**
+ * A non-existent/empty root previously fell through getAllPackages' "no
+ * workspace packages found" path silently, returning packagesAudited:0 with
+ * success:true — indistinguishable from "audited 0 packages, found nothing
+ * to flag" (QA session 2 finding). Every tool handler checks this first.
+ */
+export function rootExistsError(root: string): string | null {
+  return fs.existsSync(root) ? null : `Path does not exist: ${root}`;
+}
+
 export function findMonorepoRoot(startDir: string): string {
   const { isMonorepo, workspaceRoot } = detectMonorepo(startDir);
   if (isMonorepo && workspaceRoot) return workspaceRoot;
@@ -246,6 +256,11 @@ class DepAuditorServer extends McpServerBase {
           package?: string;
         };
         const root = rootArg ? path.resolve(rootArg) : findMonorepoRoot(process.cwd());
+        // A non-existent/empty root silently produced packagesAudited:0 with
+        // success:true, indistinguishable from "audited 0 packages because
+        // there's nothing to flag" — QA session 2 flagged this as too lenient.
+        const rootErr = rootExistsError(root);
+        if (rootErr) return this.error(new Error(rootErr));
         const packages = getAllPackages(root);
         const filtered = targetPkg ? packages.filter(p => p.name === targetPkg) : packages;
 
@@ -289,6 +304,11 @@ class DepAuditorServer extends McpServerBase {
       async (args) => {
         const { root: rootArg } = (args ?? {}) as { root?: string };
         const root = rootArg ? path.resolve(rootArg) : findMonorepoRoot(process.cwd());
+        // A non-existent/empty root silently produced packagesAudited:0 with
+        // success:true, indistinguishable from "audited 0 packages because
+        // there's nothing to flag" — QA session 2 flagged this as too lenient.
+        const rootErr = rootExistsError(root);
+        if (rootErr) return this.error(new Error(rootErr));
         const packages = getAllPackages(root);
 
         const depVersions = new Map<string, Map<string, string[]>>();
@@ -338,6 +358,11 @@ class DepAuditorServer extends McpServerBase {
           package?: string;
         };
         const root = rootArg ? path.resolve(rootArg) : findMonorepoRoot(process.cwd());
+        // A non-existent/empty root silently produced packagesAudited:0 with
+        // success:true, indistinguishable from "audited 0 packages because
+        // there's nothing to flag" — QA session 2 flagged this as too lenient.
+        const rootErr = rootExistsError(root);
+        if (rootErr) return this.error(new Error(rootErr));
         const packages = getAllPackages(root);
         const filtered = targetPkg ? packages.filter(p => p.name === targetPkg) : packages;
 
@@ -396,6 +421,11 @@ class DepAuditorServer extends McpServerBase {
       async (args) => {
         const { root: rootArg } = (args ?? {}) as { root?: string };
         const root = rootArg ? path.resolve(rootArg) : findMonorepoRoot(process.cwd());
+        // A non-existent/empty root silently produced packagesAudited:0 with
+        // success:true, indistinguishable from "audited 0 packages because
+        // there's nothing to flag" — QA session 2 flagged this as too lenient.
+        const rootErr = rootExistsError(root);
+        if (rootErr) return this.error(new Error(rootErr));
         const packages = getAllPackages(root);
 
         const analysis = packages.map(pkg => {

@@ -4,6 +4,8 @@
 // with optional persist/devtools middleware. The client-state complement to
 // api-client-generator (which only does server state).
 
+import { pascal, cap } from '@mcp-showcase/shared';
+
 export interface StoreField {
   name: string;
   /** A TS type string, e.g. "string", "number", "boolean", "string[]", "'a' | 'b'". */
@@ -27,14 +29,7 @@ export interface StoreOptions {
   devtools?: boolean;
 }
 
-function pascal(s: string): string {
-  return s.replace(/[_-]+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ').filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('') || 'Store';
-}
-
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+const VALID_IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 function initialValue(type: string): string {
   const t = type.trim();
@@ -51,9 +46,15 @@ export function generateStore(opts: StoreOptions): StoreOutcome {
   if (!Array.isArray(opts.state) || opts.state.length === 0) return { ok: false, error: 'Store "state" must have at least one field.' };
   for (const f of opts.state) {
     if (!f?.name || !f?.type) return { ok: false, error: 'Each state field needs a name and type.' };
+    // field.name is interpolated as a bare identifier (interface key, setter
+    // arg, destructured `set({ name })` key) with no sanitization elsewhere —
+    // reject rather than silently rewrite, since a rewritten name would no
+    // longer match what a hand-written call site might expect (QA fuzz
+    // regression: "first name" broke every generated line that used it).
+    if (!VALID_IDENTIFIER_RE.test(f.name)) return { ok: false, error: `Invalid field name "${f.name}" — must be a valid JS identifier.` };
   }
 
-  const Name = pascal(opts.name);
+  const Name = pascal(opts.name) === 'Resource' && !/[a-zA-Z0-9]/.test(opts.name) ? 'Store' : pascal(opts.name);
   const StateType = `${Name}State`;
   const hookName = `use${Name}`;
   const useDevtools = opts.devtools !== false;

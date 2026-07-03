@@ -10,6 +10,7 @@ import {
   extractUsedDepsFromFile,
   getAllPackages,
   findMonorepoRoot,
+  rootExistsError,
 } from './index.js';
 
 const tmpDir = path.join(os.tmpdir(), 'dep-auditor-test-' + process.pid);
@@ -201,5 +202,22 @@ describe('getAllPackages', () => {
 
     const packages = getAllPackages(tmpDir);
     expect(packages.some(p => p.name === 'unnamed')).toBe(true);
+  });
+});
+
+describe('rootExistsError (QA session 2 regression)', () => {
+  // Found dogfooding: a non-existent root previously fell through
+  // getAllPackages' "no packages found" path silently, so every handler
+  // returned success:true with packagesAudited:0 — indistinguishable from
+  // "audited 0 packages, found nothing to flag". Every handler now checks
+  // this first and returns a clean error instead.
+  it('returns an error message for a path that does not exist', () => {
+    const bad = path.join(tmpDir, 'does-not-exist');
+    expect(rootExistsError(bad)).toMatch(/does not exist/);
+  });
+
+  it('returns null for a path that exists', () => {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    expect(rootExistsError(tmpDir)).toBeNull();
   });
 });

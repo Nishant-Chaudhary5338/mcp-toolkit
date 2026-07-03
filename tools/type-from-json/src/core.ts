@@ -4,6 +4,8 @@
 // interfaces). The general-purpose sibling of infer-fields (which produces a
 // FieldSchema for the CRUD factory); this just gives you clean TS types.
 
+import { pascal as sharedPascal } from '@mcp-showcase/shared';
+
 export interface TypeFromJsonResult {
   code: string;
   filename: string;
@@ -14,9 +16,17 @@ export type TypeFromJsonOutcome =
   | { ok: true; result: TypeFromJsonResult }
   | { ok: false; error: string };
 
+/**
+ * Interface names come from arbitrary JSON object keys — no upstream
+ * validation. The local version of this only stripped non-alnum characters
+ * from the tail of each word (not the first character) and had no
+ * leading-digit guard, so e.g. "2fast2furious" produced an invalid
+ * identifier (QA fuzz regression). Delegates to the shared, fully-sanitizing
+ * pascal(), keeping this tool's own "Value" fallback word.
+ */
 function pascal(s: string): string {
-  return s.replace(/[_-]+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ').filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).replace(/[^a-zA-Z0-9]/g, '')).join('') || 'Value';
+  const result = sharedPascal(s);
+  return result === 'Resource' && !/[a-zA-Z0-9]/.test(s) ? 'Value' : result;
 }
 
 function singular(word: string): string {

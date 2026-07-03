@@ -31,7 +31,7 @@ function findToolsDir(): string {
 // MAIN SERVER
 // ============================================================================
 
-class McpToolImproviserServer extends McpServerBase {
+export class McpToolImproviserServer extends McpServerBase {
   constructor() {
     super({ name: 'mcp-tool-improviser', version: '2.0.0' });
   }
@@ -132,33 +132,41 @@ class McpToolImproviserServer extends McpServerBase {
     const startTime = Date.now();
     const { path: targetPath } = args as { path: string };
 
-    let resolvedPath = path.resolve(targetPath);
+    try {
+      let resolvedPath = path.resolve(targetPath);
 
-    // If directory, find src/index.ts
-    if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
-      const indexPath = path.join(resolvedPath, 'src', 'index.ts');
-      if (fs.existsSync(indexPath)) {
-        resolvedPath = indexPath;
-      } else {
-        throw new Error(`No src/index.ts found in ${resolvedPath}`);
+      // If directory, find src/index.ts
+      if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
+        const indexPath = path.join(resolvedPath, 'src', 'index.ts');
+        if (fs.existsSync(indexPath)) {
+          resolvedPath = indexPath;
+        } else {
+          throw new Error(`No src/index.ts found in ${resolvedPath}`);
+        }
       }
+
+      if (!fs.existsSync(resolvedPath)) {
+        throw new Error(`File not found: ${resolvedPath}`);
+      }
+
+      const result: AnalysisResult = analyzeTool(resolvedPath);
+      const duration = Date.now() - startTime;
+
+      return this.successWithDashboard('Mcp Tool Improviser', {
+        ...result,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          duration,
+          version: '2.0.0',
+        },
+      });
+    } catch (error) {
+      // A missing path previously threw straight through to McpServerBase's
+      // transport catch, surfacing as a protocol-level McpError instead of
+      // this tool's own { success: false } shape every sibling handler uses
+      // (QA session 2 finding — stylistic inconsistency, not a crash).
+      return this.error(error);
     }
-
-    if (!fs.existsSync(resolvedPath)) {
-      throw new Error(`File not found: ${resolvedPath}`);
-    }
-
-    const result: AnalysisResult = analyzeTool(resolvedPath);
-    const duration = Date.now() - startTime;
-
-    return this.successWithDashboard('Mcp Tool Improviser', {
-      ...result,
-      metadata: {
-        timestamp: new Date().toISOString(),
-        duration,
-        version: '2.0.0',
-      },
-    });
   }
 
   private async handleBatchAnalyze(args: unknown): Promise<ToolResult> {

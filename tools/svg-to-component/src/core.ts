@@ -4,6 +4,8 @@
 // (optionally) uses currentColor so it inherits text color. SVGR-grade, no
 // build step. Kills manual icon-component wrapping.
 
+import { pascal as sharedPascal } from '@mcp-showcase/shared';
+
 export interface SvgComponentResult {
   code: string;
   filename: string;
@@ -27,15 +29,27 @@ const KEBAB_ATTRS: Record<string, string> = {
   'xlink:href': 'xlinkHref', 'xmlns:xlink': 'xmlnsXlink',
 };
 
+/**
+ * Named component filenames come straight from the caller's free-text `name`
+ * arg — no upstream validation. The local pascal() this used to have only
+ * normalized "_"/"-", so punctuation/non-ASCII/leading-digit input (e.g.
+ * "2fast", "thing's") produced an invalid identifier (QA fuzz regression,
+ * same class of bug fixed centrally in @mcp-showcase/shared's pascal()).
+ * Delegates there, keeping this tool's own "Icon" fallback word.
+ */
 function pascal(s: string): string {
-  return s.replace(/\.svg$/i, '').replace(/[_-]+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ').filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('') || 'Icon';
+  const stripped = s.replace(/\.svg$/i, '');
+  const result = sharedPascal(stripped);
+  return result === 'Resource' && !/[a-zA-Z0-9]/.test(stripped) ? 'Icon' : result;
 }
 
 function jsxify(svg: string, currentColor: boolean): string {
   let out = svg;
   // strip xml decl, doctype, comments
-  out = out.replace(/<\?xml[\s\S]*?\?>/g, '').replace(/<!DOCTYPE[\s\S]*?>/gi, '').replace(/<!--[\s\S]*?-->/g, '').trim();
+  // (QA harness regression) spans bounded to {0,5000} — real xml decls/doctypes/comments
+  // are realistically short; unbounded [\s\S]*? repeated many times with no closer
+  // triggers quadratic backtracking (measured 40,000 unterminated `<!--` reps → ~1.8s).
+  out = out.replace(/<\?xml[\s\S]{0,5000}?\?>/g, '').replace(/<!DOCTYPE[\s\S]{0,5000}?>/gi, '').replace(/<!--[\s\S]{0,5000}?-->/g, '').trim();
   // class -> className
   out = out.replace(/\bclass=/g, 'className=');
   // kebab / namespaced attrs -> camelCase

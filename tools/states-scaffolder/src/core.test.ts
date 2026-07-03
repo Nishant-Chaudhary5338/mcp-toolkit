@@ -26,4 +26,15 @@ describe('generateStates', () => {
   it('rejects a missing name', () => {
     expect(generateStates({ name: '' }).ok).toBe(false);
   });
+
+  it('produces a valid identifier for a resource name with special characters (QA fuzz regression)', () => {
+    // Found fuzzing this tool: it had its own local pascal() duplicate
+    // instead of importing the shared, sanitizing helper, so it inherited
+    // the identifier-unsafety bug independently of the fix already applied
+    // there — e.g. "2fast" (leading digit) or "thing's" (apostrophe) would
+    // have produced an invalid component name.
+    const out = generateStates({ name: "thing's-2.0!" });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.componentName).toMatch(/^[A-Za-z_$][A-Za-z0-9_$]*$/);
+  });
 });

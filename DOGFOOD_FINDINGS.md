@@ -6,6 +6,77 @@
 
 ---
 
+## 🟢 QA session 2 — non-functional sweep (perf, idempotency, Node compat) — ✅ FIXED + 1 CAUGHT-AND-REVERTED
+
+### Perf on a large synthetic repo (item 1)
+
+Generated a 10k-file synthetic repo and timed `legacy-analyzer`'s `analyze-legacy-app` against it. Two real O(n²) hotspots found and fixed:
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| N1 | 🟠 P1 | `legacy-analyzer` | `resolveImportPath` did an `allFiles.includes(candidate)` linear scan, up to 9× per call, called once per import statement across every file — on a 10k-file repo, up to ~90k comparisons per import. | ✅ FIXED — `toFileSet()` caches a `Set` per distinct `allFiles` array reference (`WeakMap`), turning each lookup O(1). No behavior change (`Set.has`/`Array.includes` are equivalent for exact-match lookups). |
+| N2 | 🟠 P1 | `legacy-analyzer` (`detect-duplication`) | Compared every `(component, component)` pair unconditionally before checking `hooksMatch` — O(n²) file reads + tokenization. | ✅ FIXED — bucket components by their exact sorted hook-signature *first* (mathematically equivalent to the original set-equality check — two sets are equal iff their sorted-and-joined string forms are equal), then only compare within buckets. Turns it into O(Σ bucket_size²), cheap in practice. |
+
+**One fix attempt was caught as incorrect and reverted before landing** — the process is worth recording because it's exactly the kind of mistake "looks like a valid optimization" can hide:
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| N3 | — | `legacy-analyzer` (`detect-anti-patterns`) | An initial fix for the same tight-coupling O(n²) hotspot restricted candidate pairs to resolved import-graph edges, reasoning "`calculateCoupling` can only score nonzero when an import edge exists." **That reasoning is false**: `calculateCoupling` does a raw substring check (`imp.source.includes(basename(other))`), which can be true with *no resolved edge at all* — e.g. a file importing `./formatter` (resolves to `formatter.ts`) scores nonzero coupling against an unrelated `format.ts`, since `'formatter'.includes('format')`. Confirmed with a standalone repro before touching anything, not just by reasoning about it — the "optimization" would have silently dropped real findings. | ❌ REVERTED — restored the full pairwise scan (correctness over speed for a diagnostic tool), and added an explicit `MAX_FILES_FOR_COUPLING_CHECK = 2000` guard that skips the check cleanly with a note on huge repos, instead of a shortcut that can silently produce a wrong answer. A regression test locks in the exact substring-without-resolved-edge scenario. |
+
+Both `resolveImportPath`'s caching and `detect-duplication`'s bucketing were independently re-verified as correctness-preserving before being kept. Full `npm run build && npx vitest run` in `legacy-analyzer`: 44/44 pass (was 42, +2 new: a scaling regression test and the coupling-correctness regression test). Full monorepo `npm run build && npm test`: zero regressions.
+
+### Output idempotency (item 1)
+
+Ran `zod-schema-generator`, `table-generator`, and `legacy-analyzer` twice each on identical input and diffed output byte-for-byte. `zod-schema-generator` and `table-generator`: byte-identical. `legacy-analyzer`'s `analyze-legacy-app` report differs only in its own `summary.analysisDate` field (an intentional `new Date().toISOString()` report timestamp, documented as report metadata, not embedded into any generated code) — confirmed by stripping that one field and diffing the rest, which then matched exactly. No hidden non-determinism found.
+
+### Node 20 vs Node 22 (item 1)
+
+Full `npm run build && npm test` from the repo root under both Node 20.19.4 and Node 22.18.0 (via `nvm`): zero errors, zero failures under either version.
+
+---
+
+## 🟢 QA session 2 — duplicate-pascal fuzz, UX fixes, composition/chain testing — ✅ FIXED
+
+### Duplicate `pascal()` fuzz (items 2, `QA_SESSION_2_BRIEF.md`)
+
+Fuzzed each of the 5 tools flagged in session 1 as carrying a local `pascal()` duplicate, with adversarial input matching what each actually consumes (not generic garbage) — confirmed 4 were genuinely reachable and broke, 1 was not.
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| D1 | 🟠 P1 | `svg-to-component` | Local `pascal()` didn't sanitize punctuation/non-ASCII — `pascal("thing's-2.0!")` → `"Thing's2.0!"`, an invalid identifier, directly reachable via the free-text `name` tool-call argument. | ✅ FIXED — delegates to `@mcp-showcase/shared`'s `pascal()`, keeping the tool's own `"Icon"` empty-input fallback. Regression test added. |
+| D2 | 🟠 P1 | `states-scaffolder` | Same bug, same reachability (`opts.name` is a free-text tool-call argument). | ✅ FIXED — swapped to the shared `pascal()` (fallback word `"Resource"` already matched, clean swap). Regression test added. |
+| D3 | 🟠 P1 | `zustand-store-generator` | Same `pascal()` bug (`opts.name`), **plus** a separate, more severe issue: `state[].name` field names were interpolated as bare identifiers (interface keys, setter args, `set({ name })`) with **zero** sanitization — worse than the pascal bug, since there wasn't even an attempted fix. `{ name: "first name" }` produced `setFirst name: (first name: string) => void;` — broken on every line that used it. | ✅ FIXED — `pascal()` delegates to shared (custom `"Store"` fallback preserved); field names are now validated against a JS-identifier regex and the request is cleanly rejected if any fails (matching the `isFieldSchema` precedent from session 1 — reject rather than silently rewrite, since a rewritten name could mismatch what a hand-written call site expects). 2 regression tests added. |
+| D4 | 🟡 P2 | `type-from-json` | Local `pascal()` stripped non-alphanumeric characters from the *tail* of each word only (never the first character) and had no leading-digit guard — `pascal("2fast2furious")` (a plausible numeric-prefixed JSON key) produced an invalid identifier. | ✅ FIXED — delegates to shared `pascal()` (custom `"Value"` fallback preserved). Regression test added. |
+| — | — | `mcp-tool-factory` | Theoretical same-shape risk in its local `pascal()`. | ❌ NOT REACHABLE — `scaffold()` gates on `validateToolName()`'s kebab-case regex (`^[a-z][a-z0-9-]*$`) before `pascal()` is ever called on `spec.name`. Confirmed by reading the call graph; left as-is per the brief's explicit "don't fix without a measured failure" instruction. |
+
+### Two logged UX inconsistencies (item 3)
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| U1 | 🟡 P2 | `dep-auditor` | `find_unused_deps` and `check_outdated` (and 2 other handlers sharing the same root-resolution line) silently returned `{success:true, packagesAudited:0, results:[]}` for a non-existent/empty root — indistinguishable from "audited 0 packages, found nothing to flag." | ✅ FIXED — extracted a shared `rootExistsError()` helper, called first in all 4 handlers; returns a clean `{success:false}` error instead. Regression tests added. |
+| U2 | 🟡 P2 | `mcp-tool-improviser` | `analyze_tool`'s missing-path case threw a raw `Error`, bubbling past this tool's own handlers straight to `McpServerBase`'s transport catch — a valid but protocol-level `McpError`, inconsistent with every sibling handler's `{success:false}` shape. | ✅ FIXED — wrapped in try/catch, routed through `this.error()`. Server class exported for testability (matching the `component-factory` fix's pattern from session 1); regression test added. |
+
+### Composition/chain testing (item 5)
+
+Two integration scenarios not covered by session 1's single-tool matrix testing, run against real built tools over stdio:
+
+1. **`review-gate` → `a11y-autofixer` → `review-gate` again**: a component with `<img src="/icon.png" />` (no `alt`) — pass 1 correctly flags 1 `a11y` error; `a11y-autofixer` adds `alt=""`; pass 2 on the fixed file returns grade `A`, `errorCount: 0`. **PASS** — the fix genuinely clears the finding, not just superficially.
+2. **`mcp-tool-factory`'s `scaffold_tool` → `wire_tool` run twice** against a real on-disk checkout (isolated `git worktree`, not the working copy): first run succeeds; second `scaffold_tool` call is cleanly rejected (`already exists. Pass overwrite:true`) rather than corrupting anything; with `overwrite:true` it succeeds again; `wire_tool` run twice leaves exactly one entry for the tool in both `bin/cli.mjs` and root `package.json` (verified by grep count), and both files remain syntactically valid (`node -c`, `JSON.parse`) after the repeated run. **PASS** — no corruption.
+
+---
+
+## 🟢 ReDoS residual sweep (QA session 2, item 4) — 2026-07-03 — ✅ FIXED
+
+Individually timed every regex in the 12 tools left "visually reviewed only" by the session-1 ReDoS sweep: `env-var-migrator`, `jest-to-vitest-migrator`, `i18n-extractor`, `infer-fields`, `svg-to-component`, `type-from-json`, `states-scaffolder`, `zustand-store-generator`, `visual-regression-setup`, `playwright-scaffolder`, `mcp-tool-factory`, `bundle-budget-guard`. Standalone Node scripts, realistic domain input + adversarial input per regex, real ms readings (not guessed).
+
+| # | Sev | Tool | Bug | Status |
+|---|---|---|---|---|
+| R4 | 🟠 P1 | `svg-to-component` | `jsxify`'s `<?xml…?>`/`<!DOCTYPE…>`/`<!--…-->` stripper regexes each had an unbounded `[\s\S]*?` span — same shape as R1/R3. Measured (many repeated unterminated `<!--`/`<?xml` openers, no closer anywhere): reps=8,000 (40–48KB) → 53–72ms; reps=20,000 (100–120KB) → 329–449ms; reps=40,000 (200–240KB) → **1.3–1.8s**, clean quadratic growth. | ✅ FIXED — all three bounded to `[\s\S]{0,5000}?` (real xml decls/doctypes/comments are short). Post-fix, full `generateSvgComponent()` (not just the raw regex) on reps=40,000 → 468ms; reps=80,000 → 944ms — linear. Regression test added (`core.test.ts`, "does not catastrophically backtrack on many unterminated `<!--` comments (QA harness regression)"). |
+
+All other 11 tools measured safe — largest realistic-input timing was 264ms (`bundle-budget-guard`, 200k patterns), largest adversarial-input timing was 331ms (`bundle-budget-guard`, huge special-char pattern); everything else single/double-digit ms. Rebuilt + retested `svg-to-component` (`npm run build && npx vitest run` — 6/6 pass) and the full monorepo (`npm run build && npm test` from repo root — all packages green, zero regressions).
+
+---
+
 ## 🟢 cra-to-vite real apply + FieldSchema fuzz matrix + security hardening — ✅ FIXED
 
 Deepest QA pass yet: ran `cra-to-vite` end-to-end with a **real `dryRun:false` apply** (not just dry-run review) against a genuine `create-react-app` CLI output — real `npm install`, real `vite build`, real `vitest run` — then built a fuzz harness (`mcp-toolkit-qa/harness/fuzz-schema.mjs`) that feeds 14 adversarial `FieldSchema`s and 8 adversarial JSON samples into every CRUD-factory generator and syntax-checks the output via `ts.transpileModule`. Separately audited every `execSync`/`readFileSync` call for injection and traversal risk.

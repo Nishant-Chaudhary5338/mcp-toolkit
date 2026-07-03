@@ -39,4 +39,22 @@ describe('generateSvgComponent', () => {
   it('rejects non-svg input', () => {
     expect(generateSvgComponent('<div/>', { name: 'x' }).ok).toBe(false);
   });
+
+  it('produces a valid identifier for a component name with special characters (QA fuzz regression)', () => {
+    // Found fuzzing this tool: it had its own local pascal() duplicate
+    // instead of importing the shared, sanitizing helper, so a name like
+    // "thing's" or a leading-digit "2fast" produced an invalid identifier.
+    const out = generateSvgComponent(SVG, { name: "thing's-2.0!.svg" });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.componentName).toMatch(/^[A-Za-z_$][A-Za-z0-9_$]*$/);
+  });
+
+  it('does not catastrophically backtrack on many unterminated <!-- comments (QA harness regression)', () => {
+    const junk = '<!-- '.repeat(40000);
+    const svg = `<svg>${junk}<path d="M0 0"/></svg>`;
+    const start = Date.now();
+    const out = generateSvgComponent(svg, { name: 'x' });
+    expect(Date.now() - start).toBeLessThan(2000);
+    expect(out.ok).toBe(true);
+  });
 });

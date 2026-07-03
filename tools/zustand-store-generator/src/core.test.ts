@@ -37,4 +37,21 @@ describe('generateStore', () => {
     expect(generateStore({ name: '', state: [{ name: 'a', type: 'string' }] }).ok).toBe(false);
     expect(generateStore({ name: 'x', state: [] }).ok).toBe(false);
   });
+
+  it('produces a valid identifier for a store name with special characters (QA fuzz regression)', () => {
+    // Found fuzzing this tool: it had its own local pascal()/cap() duplicate
+    // instead of importing the shared, sanitizing helper, so it inherited the
+    // identifier-unsafety bug independently of the fix already applied there.
+    const out = generateStore({ name: "thing's-2.0!", state: [{ name: 'q', type: 'string' }] });
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.hookName).toMatch(/^use[A-Za-z0-9_$]*$/);
+  });
+
+  it('rejects a field name that is not a valid identifier instead of emitting broken code (QA fuzz regression)', () => {
+    // Found fuzzing this tool: field.name is interpolated as a bare
+    // identifier (interface key, setter arg, `set({ name })`) with zero
+    // sanitization — "first name" broke every generated line that used it.
+    const out = generateStore({ name: 'filter', state: [{ name: 'first name', type: 'string' }] });
+    expect(out.ok).toBe(false);
+  });
 });

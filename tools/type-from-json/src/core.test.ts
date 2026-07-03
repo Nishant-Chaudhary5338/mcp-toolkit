@@ -35,4 +35,15 @@ describe('generateTypes', () => {
     expect(generateTypes('not json').ok).toBe(false);
     expect(generateTypes(42).ok).toBe(false);
   });
+
+  it('produces a valid identifier for a root name with a leading digit (QA fuzz regression)', () => {
+    // Found fuzzing this tool: its local pascal() only stripped non-alnum
+    // characters from the tail of each word (never the first character) and
+    // had no leading-digit guard, so a root name like "2fast2furious" (a
+    // plausible JSON key, e.g. a numeric-prefixed API resource name)
+    // produced an invalid TS identifier.
+    const out = generateTypes({ id: 1 }, '2fast2furious');
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.rootName).toMatch(/^[A-Za-z_$][A-Za-z0-9_$]*$/);
+  });
 });

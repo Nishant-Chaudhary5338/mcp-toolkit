@@ -4,6 +4,8 @@
 // plus an <XStates> switch wrapper. Kills the copy-pasted "3 conditional
 // renders per data view" every list/detail page needs.
 
+import { pascal } from '@mcp-showcase/shared';
+
 export interface StatesResult {
   code: string;
   filename: string;
@@ -17,11 +19,6 @@ export type StatesOutcome =
 export interface StatesOptions {
   name: string;
   skeletonRows?: number;
-}
-
-function pascal(s: string): string {
-  return s.replace(/[_-]+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ').filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('') || 'Resource';
 }
 
 export function generateStates(opts: StatesOptions): StatesOutcome {

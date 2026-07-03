@@ -7,6 +7,12 @@ build
 client/dist
 tools/ui-kit/demo
 mcp-publisher
+coverage
+*.log
+.DS_Store
 
 # code-graph-indexer local index (regenerated via npx code-graph-indexer index)
 .code-graph/
+
+# Claude Code local session state (worktrees, cache) — never meant to be committed
+.claude/
