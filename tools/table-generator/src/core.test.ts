@@ -63,4 +63,24 @@ describe('generateTable', () => {
     expect(generateTable({ x: 1 }).ok).toBe(false);
     expect(generateTable({ ...schema, fields: [f('body', 'textarea', { show: false })] }).ok).toBe(false);
   });
+
+  it('braces void-returning arrow handlers instead of implicit-returning them (QA harness regression)', () => {
+    // no-confusing-void-expression under strictTypeChecked: an arrow shorthand
+    // that implicitly "returns" a void expression must use braces instead.
+    const out = generateTable(schema);
+    if (!out.ok) throw new Error(out.error);
+    const { code } = out.result;
+    expect(code).toContain('onChange={(e) => { setGlobalFilter(e.target.value); }}');
+    expect(code).toContain('onClick={() => { table.previousPage(); }}');
+    expect(code).toContain('onClick={() => { table.nextPage(); }}');
+  });
+
+  it('narrows the cell value to a display-safe type before stringifying (QA harness regression)', () => {
+    // no-base-to-string: cell.getValue() is `unknown` — stringifying it directly
+    // risks "[object Object]" for non-primitive values and is flagged under
+    // strictTypeChecked regardless. Cast to the primitive display union first.
+    const out = generateTable(schema);
+    if (!out.ok) throw new Error(out.error);
+    expect(out.result.code).toContain("String((cell.getValue() as string | number | boolean | null | undefined) ?? '—')");
+  });
 });

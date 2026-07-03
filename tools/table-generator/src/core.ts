@@ -113,7 +113,7 @@ export function ${componentName}() {
     <div className="space-y-4">
       <input
         value={globalFilter}
-        onChange={(e) => setGlobalFilter(e.target.value)}
+        onChange={(e) => { setGlobalFilter(e.target.value); }}
         placeholder="Search…"
         className="w-full max-w-xs rounded-md border px-3 py-2 text-sm"
       />
@@ -138,7 +138,7 @@ export function ${componentName}() {
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id} className="border-t">
               {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-3 py-2">{String(cell.getValue() ?? '—')}</td>
+                <td key={cell.id} className="px-3 py-2">{String((cell.getValue() as string | number | boolean | null | undefined) ?? '—')}</td>
               ))}
             </tr>
           ))}
@@ -148,8 +148,8 @@ export function ${componentName}() {
         </tbody>
       </table>
       <div className="flex items-center gap-2 text-sm">
-        <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} className="rounded border px-3 py-1 disabled:opacity-50">Prev</button>
-        <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} className="rounded border px-3 py-1 disabled:opacity-50">Next</button>
+        <button onClick={() => { table.previousPage(); }} disabled={!table.getCanPreviousPage()} className="rounded border px-3 py-1 disabled:opacity-50">Prev</button>
+        <button onClick={() => { table.nextPage(); }} disabled={!table.getCanNextPage()} className="rounded border px-3 py-1 disabled:opacity-50">Next</button>
         <span>Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}</span>
       </div>
     </div>
