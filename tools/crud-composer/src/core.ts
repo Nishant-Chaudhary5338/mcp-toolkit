@@ -79,12 +79,16 @@ function nextFiles(Type: string, base: string): ComposedFile[] {
   const dir = `app${base}`;
   const page = (importName: string, body: string) =>
     `'use client';\nimport { ${importName} } from '@/components/${importName}';\n\n${body}\n`;
+  // Next 15 makes `params` a Promise even for client-component pages; unwrap it
+  // with React 19's `use()` rather than dropping 'use client' for an async page.
+  const dynamicPage = (importName: string, body: string) =>
+    `'use client';\nimport { use } from 'react';\nimport { ${importName} } from '@/components/${importName}';\n\n${body}\n`;
 
   return [
     { path: `${dir}/page.tsx`, code: page(n.Table, `export default function Page() {\n  return <${n.Table} />;\n}`) },
     { path: `${dir}/new/page.tsx`, code: page(n.Create, `export default function Page() {\n  return <${n.Create} />;\n}`) },
-    { path: `${dir}/[id]/page.tsx`, code: page(n.Detail, `export default function Page({ params }: { params: { id: string } }) {\n  return <${n.Detail} id={params.id} />;\n}`) },
-    { path: `${dir}/[id]/edit/page.tsx`, code: page(n.Edit, `export default function Page({ params }: { params: { id: string } }) {\n  return <${n.Edit} id={params.id} />;\n}`) },
+    { path: `${dir}/[id]/page.tsx`, code: dynamicPage(n.Detail, `export default function Page({ params }: { params: Promise<{ id: string }> }) {\n  const { id } = use(params);\n  return <${n.Detail} id={id} />;\n}`) },
+    { path: `${dir}/[id]/edit/page.tsx`, code: dynamicPage(n.Edit, `export default function Page({ params }: { params: Promise<{ id: string }> }) {\n  const { id } = use(params);\n  return <${n.Edit} id={id} />;\n}`) },
   ];
 }
 
