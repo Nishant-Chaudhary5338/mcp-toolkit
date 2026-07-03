@@ -374,6 +374,15 @@ export const tools: McpTool[] = [
     serverPath: 'tools/type-from-json',
     example: '{ "input": "{\\"id\\":1,\\"author\\":{\\"name\\":\\"A\\"}}", "rootName": "Article" }',
   },
+  {
+    id: 'zustand-store-generator',
+    name: 'zustand-store-generator',
+    category: 'Boilerplate',
+    description: 'Generate a typed Zustand store (state + per-field setters + reset, optional persist/devtools) from a state shape — the client-state complement to api-client-generator.',
+    actions: ['generate_store'],
+    serverPath: 'tools/zustand-store-generator',
+    example: '{ "name": "filter", "state": [{ "name": "query", "type": "string" }] }',
+  },
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   {
