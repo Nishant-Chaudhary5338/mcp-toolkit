@@ -16,3 +16,9 @@ coverage
 
 # Claude Code local session state (worktrees, cache) — never meant to be committed
 .claude/
+
+# Stale/internal working docs — not linked from README, not meant for the public repo root
+/HOW_IT_WORKS.md
+/INTEGRATION_TEST_REPORT.md
+docs/NEXT_SESSION_PROMPT.md
+docs/CRUD_AUTOMATION_PLAN.md
