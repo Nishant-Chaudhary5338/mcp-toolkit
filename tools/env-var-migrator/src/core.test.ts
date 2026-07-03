@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { migrateSource, migrateEnvFile } from './core.js';
+import { migrateSource, migrateEnvFile, shouldSkipEnvRewrite } from './core.js';
 
 describe('migrateSource', () => {
   it('rewrites REACT_APP_ reads to import.meta.env.VITE_', () => {
@@ -13,6 +13,22 @@ describe('migrateSource', () => {
     const r = migrateSource('const v = process.env[key];\nif (process.env.NODE_ENV === "test") {}');
     expect(r.dynamicAccess).toHaveLength(1);
     expect(r.nodeEnvReads).toBe(1);
+  });
+});
+
+describe('shouldSkipEnvRewrite', () => {
+  // Found dogfooding the real "apply" path against a genuine create-react-app
+  // fixture: env-var-migrator rewrote process.env.REACT_APP_X to
+  // import.meta.env.VITE_X inside setupProxy.js, which is loaded by CRA's dev
+  // server via plain Node require() — import.meta.env is a hard SyntaxError
+  // there. The file is also meant to be ported into vite.config.ts and
+  // discarded, not env-rewritten in place.
+  it('skips setupProxy.js — a Node-context file, not bundled application code', () => {
+    expect(shouldSkipEnvRewrite('setupProxy.js')).toBe(true);
+  });
+  it('does not skip ordinary application source', () => {
+    expect(shouldSkipEnvRewrite('App.tsx')).toBe(false);
+    expect(shouldSkipEnvRewrite('setupTests.ts')).toBe(false);
   });
 });
 

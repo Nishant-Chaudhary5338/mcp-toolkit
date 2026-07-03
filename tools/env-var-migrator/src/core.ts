@@ -34,6 +34,19 @@ export function migrateSource(code: string): SourceMigration {
   return { code: out, count, dynamicAccess, nodeEnvReads };
 }
 
+// setupProxy.js is loaded by CRA's dev server via plain Node require() — it is
+// NOT processed by any bundler, so `import.meta.env` is invalid syntax there
+// (a hard SyntaxError under Node's CommonJS loader). It's also superseded by
+// vite.config.ts's server.proxy (cra-to-vite's manualReview already tells the
+// user to port it by hand and discard the file), not something to env-rewrite
+// in place. Found dogfooding the real "apply" path against a genuine CRA fixture.
+const SKIP_FILENAMES = new Set(['setupProxy.js']);
+
+/** True if this source filename should be excluded from env-var rewriting. */
+export function shouldSkipEnvRewrite(filename: string): boolean {
+  return SKIP_FILENAMES.has(filename);
+}
+
 /** Rename REACT_APP_ keys to VITE_ in a .env file's contents. */
 export function migrateEnvFile(text: string): EnvFileMigration {
   let count = 0;

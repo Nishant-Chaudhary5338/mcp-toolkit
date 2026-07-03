@@ -2,16 +2,16 @@
 import { McpServerBase } from '@mcp-showcase/shared';
 import * as fs from 'fs';
 import * as path from 'path';
-import { migrateSource, migrateEnvFile } from './core.js';
+import { migrateSource, migrateEnvFile, shouldSkipEnvRewrite } from './core.js';
 
-const SKIP = new Set(['node_modules', 'build', 'dist', '.git']);
+const SKIP_DIRS = new Set(['node_modules', 'build', 'dist', '.git']);
 function collectSrc(dir: string): string[] {
   const out: string[] = [];
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, e.name);
-    if (e.isDirectory()) { if (!SKIP.has(e.name)) out.push(...collectSrc(full)); }
-    else if (/\.(tsx?|jsx?)$/.test(e.name)) out.push(full);
+    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) out.push(...collectSrc(full)); }
+    else if (/\.(tsx?|jsx?)$/.test(e.name) && !shouldSkipEnvRewrite(e.name)) out.push(full);
   }
   return out;
 }

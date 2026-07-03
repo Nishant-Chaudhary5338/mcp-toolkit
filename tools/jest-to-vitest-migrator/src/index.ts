@@ -2,7 +2,7 @@
 import { McpServerBase } from '@mcp-showcase/shared';
 import * as fs from 'fs';
 import * as path from 'path';
-import { migrateTest } from './core.js';
+import { migrateTest, isMigratableTestFile } from './core.js';
 
 const SKIP = new Set(['node_modules', 'build', 'dist', '.git']);
 function collectTests(dir: string): string[] {
@@ -11,7 +11,7 @@ function collectTests(dir: string): string[] {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, e.name);
     if (e.isDirectory()) { if (!SKIP.has(e.name)) out.push(...collectTests(full)); }
-    else if (/\.(test|spec)\.(tsx?|jsx?)$/.test(e.name)) out.push(full);
+    else if (isMigratableTestFile(e.name)) out.push(full);
   }
   return out;
 }
@@ -24,7 +24,7 @@ class JestToVitestMigratorServer extends McpServerBase {
   protected registerTools(): void {
     this.addTool(
       'migrate_tests',
-      'Migrate Jest test files (**/*.test|spec.*) under a directory to Vitest: jest.* -> vi.*, add the vitest import, and flag vi.mock factories needing review. Dry-run by default. Returns { dryRun, files, totalRewrites, needsReview }.',
+      'Migrate Jest test files (**/*.test|spec.*, plus setupTests.ts/js) under a directory to Vitest: jest.* -> vi.*, @testing-library/jest-dom -> its /vitest subpath (required for custom matchers to register on Vitest\'s expect), add the vitest import, and flag vi.mock factories needing review. Dry-run by default. Returns { dryRun, files, totalRewrites, needsReview }.',
       {
         type: 'object',
         properties: {
