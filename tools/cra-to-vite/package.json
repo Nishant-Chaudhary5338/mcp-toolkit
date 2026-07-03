@@ -1,0 +1,19 @@
+{
+  "name": "@mcp-showcase/cra-to-vite",
+  "version": "1.0.0",
+  "description": "Orchestrate the CRA -> Vite migration: analyze the project, plan deps + config, scaffold the Vite shell, summarize env/test migration, and return a ModernizationReport with a manual-review checklist and grade.",
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": { "build": "tsc && chmod +x build/index.js", "dev": "tsc --watch", "test": "vitest run" },
+  "dependencies": {
+    "@mcp-showcase/shared": "*",
+    "@mcp-showcase/craconfig-analyzer": "*",
+    "@mcp-showcase/dependency-remapper": "*",
+    "@mcp-showcase/webpack-config-translator": "*",
+    "@mcp-showcase/vite-project-scaffolder": "*",
+    "@mcp-showcase/env-var-migrator": "*",
+    "@mcp-showcase/jest-to-vitest-migrator": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": { "@types/node": "^20.0.0", "typescript": "^5.0.0", "vitest": "^2.0.0" }
+}

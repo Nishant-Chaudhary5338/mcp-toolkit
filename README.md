@@ -12,10 +12,10 @@ MCP servers for React + TypeScript development automation. Works with Claude Des
 
 ## Install
 
-Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 58 servers straight from npm:
+Published on npm as [`mcp-react-toolkit`](https://www.npmjs.com/package/mcp-react-toolkit). No clone or build required — run any of the 59 servers straight from npm:
 
 ```bash
-npx mcp-react-toolkit --list            # list all 58 tools
+npx mcp-react-toolkit --list            # list all 59 tools
 npx mcp-react-toolkit legacy-analyzer   # run one as an MCP server (stdio)
 ```
 
@@ -65,7 +65,7 @@ Two dashboard styles:
 ## What's here
 
 ```
-tools/      58 MCP server packages — each independently buildable and runnable
+tools/      59 MCP server packages — each independently buildable and runnable
 server/     Express bridge (port 3002) — proxies calls from the UI to MCP servers
 client/     React 19 showcase SPA — tool catalog, workflow demos, animated flowcharts
 ```
@@ -86,7 +86,7 @@ npx code-graph-indexer query who-renders --id "cmp:src/Button.tsx#Button" --root
 
 ## Tools
 
-All 58 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
+All 59 tools are production-ready: built, tested, and CI-verified on Node 20 + 22.
 
 ### Component Development
 
@@ -159,6 +159,7 @@ Migrate a Create-React-App project to Vite: analyze → plan → scaffold → mi
 
 | Tool | What it does | MCP tools exposed |
 |---|---|---|
+| `cra-to-vite` | **Orchestrator** — analyze → plan → scaffold → migrate → report (A–F), point it at a CRA app | 1 |
 | `craconfig-analyzer` | Deep CRA config inspection (react-scripts, env, proxy, jest, browserslist, PWA, SVG…) | 1 |
 | `dependency-remapper` | CRA deps → Vite plan (remove/add with versions + unmapped) | 1 |
 | `env-var-migrator` | Rewrite REACT_APP_ → VITE_ / import.meta.env + rename .env keys, flag dynamic | 1 |

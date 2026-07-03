@@ -448,6 +448,16 @@ export const tools: McpTool[] = [
     example: '{ "path": "craco.config.js" }',
   },
 
+  {
+    id: 'cra-to-vite',
+    name: 'cra-to-vite',
+    category: 'CRA→Vite',
+    description: 'Orchestrate the whole CRA -> Vite migration in one call — analyze the project, plan deps + webpack, scaffold the Vite shell, summarize env/test migration, and return a ModernizationReport with a manual-review checklist and A-F grade. Composes the six CRA tools in-process.',
+    actions: ['migrate'],
+    serverPath: 'tools/cra-to-vite',
+    example: '{ "path": "/path/to/cra-app", "dryRun": true }',
+  },
+
   // ── Boilerplate ───────────────────────────────────────────────────────────
   {
     id: 'barrel-generator',
