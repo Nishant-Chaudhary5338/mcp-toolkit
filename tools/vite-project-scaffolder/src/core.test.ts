@@ -36,4 +36,26 @@ describe('generateViteProject', () => {
     expect(ts.compilerOptions.strict).toBe(true);
     expect(ts.compilerOptions.paths['@/*']).toEqual(['src/*']);
   });
+
+  it('defaults to plain vite defineConfig with no test block (unchanged CRUD-factory behavior)', () => {
+    const cfg = generateViteProject().files.find((f) => f.path === 'vite.config.ts')!.code;
+    expect(cfg).toContain("import { defineConfig } from 'vite';");
+    expect(cfg).not.toContain('test:');
+  });
+
+  it('wires a Vitest test block (jsdom + setupFiles) when vitest is requested (QA harness regression)', () => {
+    // Found dogfooding the real cra-to-vite "apply" path: without a wired test
+    // environment, every migrated CRA app's tests fail immediately (jsdom
+    // globals undefined) — nothing in the pipeline generated this before.
+    const cfg = generateViteProject({ vitest: true, vitestSetupFile: './src/setupTests.ts' }).files.find((f) => f.path === 'vite.config.ts')!.code;
+    expect(cfg).toContain("import { defineConfig } from 'vitest/config';");
+    expect(cfg).toContain("environment: 'jsdom'");
+    expect(cfg).toContain("setupFiles: ['./src/setupTests.ts']");
+  });
+
+  it('omits setupFiles when no vitestSetupFile is given', () => {
+    const cfg = generateViteProject({ vitest: true }).files.find((f) => f.path === 'vite.config.ts')!.code;
+    expect(cfg).toContain("environment: 'jsdom'");
+    expect(cfg).not.toContain('setupFiles');
+  });
 });

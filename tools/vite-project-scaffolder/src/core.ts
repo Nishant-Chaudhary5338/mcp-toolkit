@@ -26,6 +26,15 @@ export interface ViteScaffoldOptions {
   homepage?: string;
   /** Entry component import (default './App'). */
   entry?: string;
+  /**
+   * Wire a Vitest `test` block into vite.config.ts (jsdom environment) instead
+   * of leaving the project with no test runner config. Found dogfooding the
+   * real cra-to-vite "apply" path: without this, every migrated CRA app's
+   * tests fail at collection/run time with no test environment configured.
+   */
+  vitest?: boolean;
+  /** Setup file for `test.setupFiles`, e.g. './src/setupTests.ts' (only used when vitest is true). */
+  vitestSetupFile?: string;
 }
 
 export function generateViteProject(opts: ViteScaffoldOptions = {}): ViteScaffoldResult {
@@ -39,8 +48,11 @@ export function generateViteProject(opts: ViteScaffoldOptions = {}): ViteScaffol
   if (opts.svgr) { pluginImports.push(`import svgr from 'vite-plugin-svgr';`); plugins.push('svgr()'); }
   const needPath = srcAlias;
 
+  // Vitest's `defineConfig` (from 'vitest/config') is a superset of Vite's own
+  // that also types a `test` field — using it lets vite.config.ts carry both
+  // configs without duplicating the plugin list into a second file.
   const configLines = [
-    `import { defineConfig } from 'vite';`,
+    `import { defineConfig } from '${opts.vitest ? 'vitest/config' : 'vite'}';`,
     ...pluginImports,
     ...(needPath ? [`import path from 'node:path';`] : []),
     '',
@@ -50,6 +62,12 @@ export function generateViteProject(opts: ViteScaffoldOptions = {}): ViteScaffol
     ...(base ? [`  base: '${base.endsWith('/') ? base : `${base}/`}',`] : []),
     ...(srcAlias ? ['  resolve: {', "    alias: { '@': path.resolve(__dirname, 'src') },", '  },'] : []),
     ...(opts.proxyTarget ? ['  server: {', '    proxy: {', `      '/api': { target: '${opts.proxyTarget}', changeOrigin: true },`, '    },', '  },'] : []),
+    ...(opts.vitest ? [
+      '  test: {',
+      "    environment: 'jsdom',",
+      ...(opts.vitestSetupFile ? [`    setupFiles: ['${opts.vitestSetupFile}'],`] : []),
+      '  },',
+    ] : []),
     '});',
     '',
   ];
