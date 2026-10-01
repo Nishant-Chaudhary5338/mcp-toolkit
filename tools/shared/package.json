@@ -9,6 +9,9 @@
     }
   },
   "main": "./build/index.js",
+  "files": [
+    "build"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
