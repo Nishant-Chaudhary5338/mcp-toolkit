@@ -12,5 +12,5 @@
     "fs-extra": "^11.2.0",
     "glob": "^10.3.10"
   },
-  "devDependencies": { "@types/node": "^20.0.0", "@types/fs-extra": "^11.0.0", "typescript": "^5.0.0", "vitest": "^2.0.0" }
+  "devDependencies": { "@types/node": "^20.0.0", "@types/fs-extra": "^11.0.0", "typescript": "^5.0.0", "vitest": "^4.1.11" }
 }
